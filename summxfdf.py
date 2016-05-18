@@ -2,14 +2,10 @@
 
 from __future__ import print_function
 import sys
-import xml.etree.ElementTree as ET
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
 from pdfminer.layout import LAParams, LTContainer, LTPage, LTAnno, LTText, LTChar, LTTextLine, LTTextBox
 from pdfminer.converter import TextConverter
-
-XFDFURI = "http://ns.adobe.com/xfdf/"
-XFDFNS = {"xfdf": XFDFURI}
 
 class RectExtractor(TextConverter):
     def __init__(self, rsrcmgr, codec='utf-8', pageno=1, laparams=None):
@@ -51,16 +47,18 @@ class RectExtractor(TextConverter):
         render(ltpage)
 
 class Annotation:
-    def __init__(self, pageno, tagname, coords_str=None, contents=None):
+    def __init__(self, pageno, tagname, coords=None, contents=None):
         self.pageno = pageno
         self.tagname = tagname
-        self.contents = contents
+        if contents == '':
+            self.contents = None
+        else:
+            self.contents = contents
         self.text = ''
 
-        if coords_str is None:
+        if coords is None:
             self.boxes = None
         else:
-            coords = map(float, coords_str.split(','))
             assert(len(coords) % 8 == 0)
             self.boxes = []
             while coords != []:
@@ -87,23 +85,21 @@ class Annotation:
     def getpos(self):
         return "Page %d:" % (self.pageno + 1)
 
-def pdfextract(pdffile, page_annots):
-    rsrcmgr = PDFResourceManager()
-    laparams = LAParams()
-    fp = file(pdffile, 'rb')
-    device = RectExtractor(rsrcmgr, codec='utf-8', laparams=laparams)
-    interpreter = PDFPageInterpreter(rsrcmgr, device)
 
-    pagenos = page_annots.keys()
-    pagenos.sort()
-    i = 0
-    for page in PDFPage.get_pages(fp, pagenos):
-        device.setcoords(page_annots[pagenos[i]])
-        i += 1
-        interpreter.process_page(page)
+ANNOT_SUBTYPES = set(['Text', 'Highlight', 'Squiggly', 'StrikeOut'])
 
-    device.close()
-    fp.close()
+def getannots(pdfannots, pageno):
+    annots = []
+    for pa in pdfannots:
+        subtype = pa.get('Subtype')
+        if subtype is not None and subtype.name not in ANNOT_SUBTYPES:
+            continue
+
+        a = Annotation(pageno, subtype.name.lower(), pa.get('QuadPoints'), pa.get('Contents'))
+        annots.append(a)
+
+    return annots
+
 
 def prettyprint(annots):
     nits = [a for a in annots if a.tagname in ['squiggly', 'strikeout']]
@@ -131,33 +127,30 @@ def prettyprint(annots):
             else:
                 print(a.getpos(), "\"%s\"" % a.gettext())
 
-def main(xfdffile, pdffile):
-    # parse the XFDF and find our annotations
-    tree = ET.parse(xfdffile)
-    annots_tag = tree.getroot().find("./xfdf:annots", XFDFNS)
-    annots = []
-    for t in annots_tag:
-        tagname = t.tag.replace("{" + XFDFURI + "}", "", 1)
-        if tagname not in ['highlight', 'text', 'squiggly', 'strikeout']:
+
+def main(pdffile):
+    rsrcmgr = PDFResourceManager()
+    laparams = LAParams()
+    fp = file(pdffile, 'rb')
+    device = RectExtractor(rsrcmgr, codec='utf-8', laparams=laparams)
+    interpreter = PDFPageInterpreter(rsrcmgr, device)
+    allannots = []
+
+    for (pageno, page) in enumerate(PDFPage.get_pages(fp)):
+        if page.annots is None or page.annots is []:
             continue
-        pageno = int(t.get("page"))
-        contents = t.find("xfdf:contents", XFDFNS)
-        if contents is not None:
-            contents = contents.text
-        a = Annotation(pageno, tagname, t.get("coords"), contents)
-        annots.append(a)
+        sys.stderr.write((" " if pageno > 0 else "") + "%d" % (pageno + 1))
+        pdfannots = [ar.resolve() for ar in page.annots]
+        pageannots = getannots(pdfannots, pageno)
+        device.setcoords(pageannots)
+        interpreter.process_page(page)
+        allannots.extend(pageannots)
+    sys.stderr.write("\n")
 
-    # group by pageno
-    page_annots = {}
-    for a in annots:
-        if page_annots.has_key(a.pageno):
-            page_annots[a.pageno].append(a)
-        else:
-            page_annots[a.pageno] = [a]
+    device.close()
+    fp.close()
 
-    # process the PDF
-    pdfextract(pdffile, page_annots)
-    prettyprint(annots)
+    prettyprint(allannots)
 
 if __name__ == "__main__":
-    main(sys.argv[1], sys.argv[2])
+    main(sys.argv[1])
