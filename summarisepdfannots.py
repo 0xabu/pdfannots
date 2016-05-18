@@ -27,7 +27,7 @@ class RectExtractor(TextConverter):
                     (item.x1 >= x0 and item.y0 >= y0 and item.x1 <= x1 and item.y0 <= y1))
 
         for a in self.annots:
-            if any(map(lambda box: testbox(item, box), a.boxes)):
+            if any([testbox(item, b) for b in a.boxes]):
                 self._lasttestpassed = a
                 return a
 
@@ -111,10 +111,8 @@ def getannots(pdfannots, pageno):
     return annots
 
 def nearest_outline(outlines, mediaboxes, pageno, (x, y)):
-    if outlines is None or len(outlines) <= 1:
-        return None
-    prev = outlines[0]
-    for o in outlines[1:]:
+    prev = None
+    for o in outlines:
         if o.pageno < pageno:
             prev = o
         elif o.pageno > pageno:
@@ -131,6 +129,7 @@ def nearest_outline(outlines, mediaboxes, pageno, (x, y)):
                 return prev
             else:
                 prev = o
+    return prev
 
 def getpos(annot, outlines, mediaboxes):
     apos = annot.getstartpos()
@@ -208,7 +207,7 @@ def main(pdffile):
     rsrcmgr = PDFResourceManager()
     laparams = LAParams()
     fp = file(pdffile, 'rb')
-    device = RectExtractor(rsrcmgr, codec='utf-8', laparams=laparams)
+    device = RectExtractor(rsrcmgr, laparams=laparams)
     interpreter = PDFPageInterpreter(rsrcmgr, device)
     allannots = []
 
