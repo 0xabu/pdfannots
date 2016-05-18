@@ -123,9 +123,9 @@ def nearest_outline(outlines, mediaboxes, pageno, (x, y)):
             assert(o.x >= x0 and o.x <= x1)
             assert(x >= x0 and x <= x1)
             colwidth = (x1 - x0) / 2
-            outline_col = (o.x - x0) / colwidth
-            pos_col = (x - x0) / colwidth
-            if outline_col > pos_col or o.y < y:
+            outline_col = (o.x - x0) // colwidth
+            pos_col = (x - x0) // colwidth
+            if outline_col > pos_col or (outline_col == pos_col and o.y < y):
                 return prev
             else:
                 prev = o
@@ -193,8 +193,8 @@ def get_outlines(doc, pagesdict):
             action = actionref.resolve()
             if isinstance(action, dict):
                 subtype = action.get('S')
-                if subtype is PSLiteralTable.intern('GoTo') and action.get('D'):
-                    destname = action['D']
+                if subtype is PSLiteralTable.intern('GoTo'):
+                    destname = action.get('D')
         if destname is None:
             continue
         dest = resolve_dest(doc, destname)
@@ -206,16 +206,16 @@ def get_outlines(doc, pagesdict):
 def main(pdffile):
     rsrcmgr = PDFResourceManager()
     laparams = LAParams()
-    fp = file(pdffile, 'rb')
     device = RectExtractor(rsrcmgr, laparams=laparams)
     interpreter = PDFPageInterpreter(rsrcmgr, device)
-    allannots = []
-
+    fp = file(pdffile, 'rb')
     parser = PDFParser(fp)
     doc = PDFDocument(parser)
+
     pagesdict = {}
     mediaboxes = {}
-    
+    allannots = []
+
     for (pageno, page) in enumerate(PDFPage.create_pages(doc)):
         pagesdict[page.pageid] = pageno
         mediaboxes[pageno] = page.mediabox
