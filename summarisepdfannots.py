@@ -85,7 +85,10 @@ class Annotation:
             self.text += text
 
     def gettext(self):
-        return self.text.strip()
+        if self.text:
+            return self.text.strip()
+        else:
+            return None
 
     def getstartpos(self):
         if self.rect:
@@ -131,43 +134,55 @@ def nearest_outline(outlines, mediaboxes, pageno, (x, y)):
                 prev = o
     return prev
 
-def getpos(annot, outlines, mediaboxes):
-    apos = annot.getstartpos()
-    if apos:
-        o = nearest_outline(outlines, mediaboxes, annot.pageno, apos)
-    else:
-        o = None
-    if o:
-        return "Page %d (%s):" % (annot.pageno + 1, o.title)
-    else:
-        return "Page %d:" % (annot.pageno + 1)
-
 
 def prettyprint(annots, outlines, mediaboxes):
+
+    def fmtpos(annot):
+        apos = annot.getstartpos()
+        if apos:
+            o = nearest_outline(outlines, mediaboxes, annot.pageno, apos)
+        else:
+            o = None
+        if o:
+            return "Page %d (%s):" % (annot.pageno + 1, o.title)
+        else:
+            return "Page %d:" % (annot.pageno + 1)
+
+    def fmttext(annot):
+        if a.gettext():
+            return '"%s"' % a.gettext()
+        else:
+            return ''
+
     nits = [a for a in annots if a.tagname in ['squiggly', 'strikeout']]
     comments = [a for a in annots if a.tagname in ['highlight', 'text'] and a.contents]
     highlights = [a for a in annots if a.tagname == 'highlight' and a.contents is None]
-
+    
     if highlights:
         print("Highlights:")
         for a in highlights:
-            print(getpos(a, outlines, mediaboxes), "\"%s\"\n" % a.gettext())
+            print(fmtpos(a), fmttext(a), "\n")
 
     if comments:
         print("\nDetailed comments:")
         for a in comments:
-            if a.text:
-                print(getpos(a, outlines, mediaboxes), "Regarding \"%s\"," % a.gettext(), a.contents, "\n")
+            text = fmttext(a)
+            if text:
+                # lowercase the first word, to join it to the "Regarding" sentence
+                contents = a.contents
+                if contents.split()[0] != 'I':
+                    contents = contents[0].lower() + contents[1:]
+                print(fmtpos(a), "Regarding", text + ",", contents, "\n")
             else:
-                print(getpos(a, outlines, mediaboxes), a.contents, "\n")
+                print(fmtpos(a), a.contents, "\n")
 
     if nits:
         print("\nNits:")
         for a in nits:
             if a.contents:
-                print(getpos(a, outlines, mediaboxes), "\"%s\" -> %s" % (a.gettext(), a.contents))
+                print(fmtpos(a), "\"%s\" -> %s" % (a.gettext(), a.contents))
             else:
-                print(getpos(a, outlines, mediaboxes), "\"%s\"" % a.gettext())
+                print(fmtpos(a), "\"%s\"" % a.gettext())
 
 def resolve_dest(doc, dest):
     if isinstance(dest, str):
