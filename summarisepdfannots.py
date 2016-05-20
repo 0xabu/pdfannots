@@ -237,7 +237,7 @@ def main(pdffile):
         if page.annots is None or page.annots is []:
             continue
         sys.stderr.write((" " if pageno > 0 else "") + "%d" % (pageno + 1))
-        pdfannots = [ar.resolve() for ar in page.annots]
+        pdfannots = [ar.resolve() for ar in pdftypes.resolve1(page.annots)]
         pageannots = getannots(pdfannots, pageno)
         device.setcoords(pageannots)
         interpreter.process_page(page)
