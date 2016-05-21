@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
 
 from __future__ import print_function
 import sys
@@ -10,6 +11,10 @@ from pdfminer.pdfparser import PDFParser
 from pdfminer.pdfdocument import PDFDocument
 from pdfminer.psparser import PSLiteralTable
 import pdfminer.pdftypes as pdftypes
+
+TEXLIGATURES = {
+    u'ﬂ': 'fl',
+}
 
 class RectExtractor(TextConverter):
     def __init__(self, rsrcmgr, codec='utf-8', pageno=1, laparams=None):
@@ -86,7 +91,8 @@ class Annotation:
 
     def gettext(self):
         if self.text:
-            return self.text.strip()
+            # replace tex ligatures (and other common odd characters)
+            return ''.join([TEXLIGATURES.get(c, c) for c in self.text.strip()])
         else:
             return None
 
