@@ -244,7 +244,12 @@ def main(pdffile):
         allannots.extend(pageannots)
     sys.stderr.write("\n")
 
-    outlines = get_outlines(doc, pagesdict)
+    try:
+        outlines = get_outlines(doc, pagesdict)
+    except:
+        e = sys.exc_info()[0]
+        sys.stderr.write("Warning: failed to retrieve outlines: %s\n" % e) 
+        outlines = []
 
     device.close()
     fp.close()
