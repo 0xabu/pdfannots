@@ -168,9 +168,10 @@ def prettyprint(annots, outlines, mediaboxes):
         for a in comments:
             text = fmttext(a)
             if text:
-                # lowercase the first word, to join it to the "Regarding" sentence
+                # XXX: lowercase the first word, to join it to the "Regarding" sentence
                 contents = a.contents
-                if contents.split()[0] != 'I':
+                firstword = contents.split()[0]
+                if firstword != 'I' and not firstword.startswith("I'"):
                     contents = contents[0].lower() + contents[1:]
                 print(fmtpos(a), "Regarding", text + ",", contents, "\n")
             else:
