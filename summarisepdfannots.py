@@ -13,6 +13,8 @@ from pdfminer.psparser import PSLiteralTable
 import pdfminer.pdftypes as pdftypes
 
 TEXLIGATURES = {
+    u'ﬀ': 'ff',
+    u'ﬁ': 'fi',
     u'ﬂ': 'fl',
 }
 
@@ -26,13 +28,13 @@ class RectExtractor(TextConverter):
         self._lasttestpassed = None
 
     def testboxes(self, item):
-        def testbox(item, box):
+        def testbox(box):
             (x0, y0, x1, y1) = box
             return ((item.x0 >= x0 and item.y0 >= y0 and item.x0 <= x1 and item.y0 <= y1) or
                     (item.x1 >= x0 and item.y0 >= y0 and item.x1 <= x1 and item.y0 <= y1))
 
         for a in self.annots:
-            if any([testbox(item, b) for b in a.boxes]):
+            if any([testbox(b) for b in a.boxes]):
                 self._lasttestpassed = a
                 return a
 
