@@ -121,6 +121,17 @@ def getannots(pdfannots, pageno):
 
     return annots
 
+def normalise_to_box((x, y), (x0, y0, x1, y1)):
+    if x < x0:
+        x = x0
+    elif x > x1:
+        x = x1
+    if y < y0:
+        y = y0
+    elif y > y1:
+        y = y1
+    return (x, y)
+
 def nearest_outline(outlines, mediaboxes, pageno, (x, y)):
     prev = None
     for o in outlines:
@@ -130,11 +141,11 @@ def nearest_outline(outlines, mediaboxes, pageno, (x, y)):
             return prev
         else:
             # XXX: assume two-column left-to-right top-to-bottom documents
+            (x, y) = normalise_to_box((x, y), mediaboxes[pageno])
+            (ox, oy) = normalise_to_box((o.x, o.y), mediaboxes[pageno])
             (x0, y0, x1, y1) = mediaboxes[pageno]
-            assert(o.x >= x0 and o.x <= x1)
-            assert(x >= x0 and x <= x1)
             colwidth = (x1 - x0) / 2
-            outline_col = (o.x - x0) // colwidth
+            outline_col = (ox - x0) // colwidth
             pos_col = (x - x0) // colwidth
             if outline_col > pos_col or (outline_col == pos_col and o.y < y):
                 return prev
