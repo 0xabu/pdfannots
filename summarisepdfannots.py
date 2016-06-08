@@ -199,10 +199,13 @@ def prettyprint(annots, outlines, mediaboxes):
     if nits:
         print("\nNits:")
         for a in nits:
+            text = fmttext(a)
+            if text == '':
+                text = "(missing text!)"
             if a.contents:
-                print(fmtpos(a), "\"%s\" -> %s" % (a.gettext(), a.contents))
+                print(fmtpos(a), "%s -> %s" % (text, a.contents))
             else:
-                print(fmtpos(a), "\"%s\"" % a.gettext())
+                print(fmtpos(a), "%s" % text)
 
 def resolve_dest(doc, dest):
     if isinstance(dest, str):
