@@ -1,16 +1,19 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
 from __future__ import print_function
-import sys
+import sys, io
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
 from pdfminer.layout import LAParams, LTContainer, LTPage, LTAnno, LTText, LTChar, LTTextLine, LTTextBox
 from pdfminer.converter import TextConverter
 from pdfminer.pdfparser import PDFParser
 from pdfminer.pdfdocument import PDFDocument
-from pdfminer.psparser import PSLiteralTable
+from pdfminer.psparser import PSLiteralTable, PSLiteral
 import pdfminer.pdftypes as pdftypes
+import pdfminer.settings
+
+pdfminer.settings.STRICT = False
 
 TEXLIGATURES = {
     u'ﬀ': 'ff',
@@ -20,7 +23,8 @@ TEXLIGATURES = {
 
 class RectExtractor(TextConverter):
     def __init__(self, rsrcmgr, codec='utf-8', pageno=1, laparams=None):
-        TextConverter.__init__(self, rsrcmgr, outfp=None, codec=codec, pageno=pageno, laparams=laparams)
+        dummy = io.StringIO()
+        TextConverter.__init__(self, rsrcmgr, outfp=dummy, codec=codec, pageno=pageno, laparams=laparams)
         self.annots = []
 
     def setcoords(self, annots):
@@ -116,12 +120,17 @@ def getannots(pdfannots, pageno):
         if subtype is not None and subtype.name not in ANNOT_SUBTYPES:
             continue
 
-        a = Annotation(pageno, subtype.name.lower(), pa.get('QuadPoints'), pa.get('Rect'), pa.get('Contents'))
+        contents = pa.get('Contents')
+        if contents is not None:
+            contents = str(contents, 'utf-8')
+        a = Annotation(pageno, subtype.name.lower(), pa.get('QuadPoints'), pa.get('Rect'), contents)
         annots.append(a)
 
     return annots
 
-def normalise_to_box((x, y), (x0, y0, x1, y1)):
+def normalise_to_box(pos, box):
+    (x, y) = pos
+    (x0, y0, x1, y1) = box
     if x < x0:
         x = x0
     elif x > x1:
@@ -132,7 +141,8 @@ def normalise_to_box((x, y), (x0, y0, x1, y1)):
         y = y1
     return (x, y)
 
-def nearest_outline(outlines, mediaboxes, pageno, (x, y)):
+def nearest_outline(outlines, pageno, mediabox, pos):
+    (x, y) = normalise_to_box(pos, mediabox)
     prev = None
     for o in outlines:
         if o.pageno < pageno:
@@ -141,9 +151,8 @@ def nearest_outline(outlines, mediaboxes, pageno, (x, y)):
             return prev
         else:
             # XXX: assume two-column left-to-right top-to-bottom documents
-            (x, y) = normalise_to_box((x, y), mediaboxes[pageno])
-            (ox, oy) = normalise_to_box((o.x, o.y), mediaboxes[pageno])
-            (x0, y0, x1, y1) = mediaboxes[pageno]
+            (ox, oy) = normalise_to_box((o.x, o.y), mediabox)
+            (x0, y0, x1, y1) = mediabox
             colwidth = (x1 - x0) / 2
             outline_col = (ox - x0) // colwidth
             pos_col = (x - x0) // colwidth
@@ -159,7 +168,7 @@ def prettyprint(annots, outlines, mediaboxes):
     def fmtpos(annot):
         apos = annot.getstartpos()
         if apos:
-            o = nearest_outline(outlines, mediaboxes, annot.pageno, apos)
+            o = nearest_outline(outlines, annot.pageno, mediaboxes[annot.pageno], apos)
         else:
             o = None
         if o:
@@ -208,7 +217,7 @@ def prettyprint(annots, outlines, mediaboxes):
                 print(fmtpos(a), "%s" % text)
 
 def resolve_dest(doc, dest):
-    if isinstance(dest, str):
+    if isinstance(dest, bytes):
         dest = pdftypes.resolve1(doc.get_dest(dest))
     elif isinstance(dest, PSLiteral):
         dest = pdftypes.resolve1(doc.get_dest(dest.name))
@@ -246,7 +255,7 @@ def main(pdffile):
     laparams = LAParams()
     device = RectExtractor(rsrcmgr, laparams=laparams)
     interpreter = PDFPageInterpreter(rsrcmgr, device)
-    fp = file(pdffile, 'rb')
+    fp = open(pdffile, 'rb')
     parser = PDFParser(fp)
     doc = PDFDocument(parser)
 
@@ -260,6 +269,7 @@ def main(pdffile):
         if page.annots is None or page.annots is []:
             continue
         sys.stderr.write((" " if pageno > 0 else "") + "%d" % (pageno + 1))
+        sys.stderr.flush()
         pdfannots = [ar.resolve() for ar in pdftypes.resolve1(page.annots)]
         pageannots = getannots(pdfannots, pageno)
         device.setcoords(pageannots)
