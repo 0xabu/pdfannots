@@ -19,6 +19,7 @@ TEXLIGATURES = {
     u'ﬀ': 'ff',
     u'ﬁ': 'fi',
     u'ﬂ': 'fl',
+    u'’': "'",
 }
 
 class RectExtractor(TextConverter):
@@ -122,7 +123,7 @@ def getannots(pdfannots, pageno):
 
         contents = pa.get('Contents')
         if contents is not None:
-            contents = str(contents, 'utf-8')
+            contents = str(contents, 'iso8859-15') #'utf-8'
         a = Annotation(pageno, subtype.name.lower(), pa.get('QuadPoints'), pa.get('Rect'), contents)
         annots.append(a)
 
