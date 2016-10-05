@@ -112,7 +112,7 @@ class Annotation:
             return None
         return (min(x0, x1), max(y0, y1)) # assume left-to-right top-to-bottom text :)
 
-ANNOT_SUBTYPES = set(['Text', 'Highlight', 'Squiggly', 'StrikeOut'])
+ANNOT_SUBTYPES = set(['Text', 'Highlight', 'Squiggly', 'StrikeOut', 'Underline'])
 
 def getannots(pdfannots, pageno):
     annots = []
@@ -183,7 +183,7 @@ def prettyprint(annots, outlines, mediaboxes):
         else:
             return ''
 
-    nits = [a for a in annots if a.tagname in ['squiggly', 'strikeout']]
+    nits = [a for a in annots if a.tagname in ['squiggly', 'strikeout', 'underline']]
     comments = [a for a in annots if a.tagname in ['highlight', 'text'] and a.contents]
     highlights = [a for a in annots if a.tagname == 'highlight' and a.contents is None]
     
