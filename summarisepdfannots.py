@@ -30,7 +30,7 @@ class RectExtractor(TextConverter):
 
     def setcoords(self, annots):
         self.annots = [a for a in annots if a.boxes]
-        self._lasttestpassed = None
+        self._lasthit = []
 
     def testboxes(self, item):
         def testbox(box):
@@ -38,10 +38,11 @@ class RectExtractor(TextConverter):
             return ((item.x0 >= x0 and item.y0 >= y0 and item.x0 <= x1 and item.y0 <= y1) or
                     (item.x1 >= x0 and item.y0 >= y0 and item.x1 <= x1 and item.y0 <= y1))
 
+        self._lasthit = []
         for a in self.annots:
             if any([testbox(b) for b in a.boxes]):
-                self._lasttestpassed = a
-                return a
+                self._lasthit.append(a)
+        return self._lasthit
 
     def receive_layout(self, ltpage):
         def render(item):
@@ -49,15 +50,14 @@ class RectExtractor(TextConverter):
                 for child in item:
                     render(child)
             elif isinstance(item, LTAnno):
-                if self._lasttestpassed:
-                    self._lasttestpassed.capture(item.get_text())
+                # this catches whitespace
+                for a in self._lasthit:
+                    a.capture(item.get_text())
             elif isinstance(item, LTText):
-                a = self.testboxes(item)
-                if a:
+                for a in self.testboxes(item):
                     a.capture(item.get_text())
             if isinstance(item, LTTextBox):
-                a = self.testboxes(item)
-                if a:
+                for a in self.testboxes(item):
                     a.capture('\n')
 
         render(ltpage)
