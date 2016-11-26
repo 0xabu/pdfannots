@@ -178,8 +178,11 @@ def prettyprint(annots, outlines, mediaboxes):
             return "Page %d:" % (annot.pageno + 1)
 
     def fmttext(annot):
-        if a.gettext():
-            return '"%s"' % a.gettext()
+        if annot.boxes:
+            if annot.gettext():
+                return '"%s"' % annot.gettext()
+            else:
+                return "(XXX: missing text!)"
         else:
             return ''
 
@@ -210,8 +213,6 @@ def prettyprint(annots, outlines, mediaboxes):
         print("\nNits:")
         for a in nits:
             text = fmttext(a)
-            if text == '':
-                text = "(missing text!)"
             if a.contents:
                 print(fmtpos(a), "%s -> %s" % (text, a.contents))
             else:
