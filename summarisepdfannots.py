@@ -8,7 +8,7 @@ from pdfminer.pdfpage import PDFPage
 from pdfminer.layout import LAParams, LTContainer, LTPage, LTAnno, LTText, LTChar, LTTextLine, LTTextBox
 from pdfminer.converter import TextConverter
 from pdfminer.pdfparser import PDFParser
-from pdfminer.pdfdocument import PDFDocument
+from pdfminer.pdfdocument import PDFDocument, PDFNoOutlines
 from pdfminer.psparser import PSLiteralTable, PSLiteral
 import pdfminer.pdftypes as pdftypes
 import pdfminer.settings
@@ -278,12 +278,14 @@ def main(pdffile):
         allannots.extend(pageannots)
     sys.stderr.write("\n")
 
+    outlines = []
     try:
         outlines = get_outlines(doc, pagesdict)
+    except PDFNoOutlines:
+        sys.stderr.write("Document doesn't include outlines (\"bookmarks\")\n")
     except:
         e = sys.exc_info()[0]
         sys.stderr.write("Warning: failed to retrieve outlines: %s\n" % e) 
-        outlines = []
 
     device.close()
     fp.close()
