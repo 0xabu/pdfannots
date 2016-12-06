@@ -22,17 +22,12 @@ TEXLIGATURES = {
     u'’': "'",
 }
 
+DEBUG_BOXHIT = False
+
 def boxhit(item, box):
     (x0, y0, x1, y1) = box
     assert item.x0 <= item.x1 and item.y0 <= item.y1
     assert x0 <= x1 and y0 <= y1
-
-    # is the bottom of the item within the box?
-    # this is a quick check which works well in practice
-    bot_inbox = ((item.x0 >= x0 and item.y0 >= y0 and item.x0 <= x1 and item.y0 <= y1) or
-                 (item.x1 >= x0 and item.y0 >= y0 and item.x1 <= x1 and item.y0 <= y1))
-    if bot_inbox:
-        return True
 
     # does most of the item area overlap the box?
     # http://math.stackexchange.com/questions/99565/simplest-way-to-calculate-the-intersect-area-of-two-rectangles
@@ -41,6 +36,11 @@ def boxhit(item, box):
     overlap_area = x_overlap * y_overlap
     item_area = (item.x1 - item.x0) * (item.y1 - item.y0)
     assert overlap_area <= item_area
+
+    if DEBUG_BOXHIT and overlap_area != 0:
+        print("'%s' %f-%f,%f-%f in %f-%f,%f-%f %2.0f%%" %
+              (item.get_text(), item.x0, item.x1, item.y0, item.y1, x0, x1, y0, y1,
+               100 * overlap_area / item_area))
 
     if item_area == 0:
         return False
