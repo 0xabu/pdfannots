@@ -15,12 +15,14 @@ import pdfminer.settings
 
 pdfminer.settings.STRICT = False
 
-TEXLIGATURES = {
+SUBSTITUTIONS = {
     u'ﬀ': 'ff',
     u'ﬁ': 'fi',
     u'ﬂ': 'fl',
     u'’': "'",
 }
+
+ANNOT_SUBTYPES = set(['Text', 'Highlight', 'Squiggly', 'StrikeOut', 'Underline'])
 
 DEBUG_BOXHIT = False
 
@@ -119,7 +121,7 @@ class Annotation:
     def gettext(self):
         if self.text:
             # replace tex ligatures (and other common odd characters)
-            return ''.join([TEXLIGATURES.get(c, c) for c in self.text.strip()])
+            return ''.join([SUBSTITUTIONS.get(c, c) for c in self.text.strip()])
         else:
             return None
 
@@ -132,8 +134,6 @@ class Annotation:
             return None
         return (min(x0, x1), max(y0, y1)) # assume left-to-right top-to-bottom text :)
 
-ANNOT_SUBTYPES = set(['Text', 'Highlight', 'Squiggly', 'StrikeOut', 'Underline'])
-
 def getannots(pdfannots, pageno):
     annots = []
     for pa in pdfannots:
@@ -144,6 +144,7 @@ def getannots(pdfannots, pageno):
         contents = pa.get('Contents')
         if contents is not None:
             contents = str(contents, 'iso8859-15') #'utf-8'
+            contents = contents.replace('\r\n', '\n').replace('\r', '\n')
         a = Annotation(pageno, subtype.name.lower(), pa.get('QuadPoints'), pa.get('Rect'), contents)
         annots.append(a)
 
@@ -272,13 +273,12 @@ def get_outlines(doc, pagesdict):
         result.append(Outline(title, destname, pageno, targetx, targety))
     return result
 
-def main(pdffile):
+def main(fh):
     rsrcmgr = PDFResourceManager()
     laparams = LAParams()
     device = RectExtractor(rsrcmgr, laparams=laparams)
     interpreter = PDFPageInterpreter(rsrcmgr, device)
-    fp = open(pdffile, 'rb')
-    parser = PDFParser(fp)
+    parser = PDFParser(fh)
     doc = PDFDocument(parser)
 
     pagesdict = {}
@@ -290,13 +290,17 @@ def main(pdffile):
         mediaboxes[pageno] = page.mediabox
         if page.annots is None or page.annots is []:
             continue
+
+        # emit progress indicator
         sys.stderr.write((" " if pageno > 0 else "") + "%d" % (pageno + 1))
         sys.stderr.flush()
+
         pdfannots = [ar.resolve() for ar in pdftypes.resolve1(page.annots)]
         pageannots = getannots(pdfannots, pageno)
         device.setcoords(pageannots)
         interpreter.process_page(page)
         allannots.extend(pageannots)
+
     sys.stderr.write("\n")
 
     outlines = []
@@ -309,9 +313,20 @@ def main(pdffile):
         sys.stderr.write("Warning: failed to retrieve outlines: %s\n" % e) 
 
     device.close()
-    fp.close()
 
     prettyprint(allannots, outlines, mediaboxes)
 
+
 if __name__ == "__main__":
-    main(sys.argv[1])
+    if len(sys.argv) != 2:
+        sys.stderr.write("Usage: %s FILE.PDF\n" % sys.argv[0])
+        sys.exit(1)
+
+    try:
+        fh = open(sys.argv[1], 'rb')
+    except OSError as e:
+        sys.stderr.write("Error: %s\n" % e)
+        sys.exit(1)
+    else:
+        with fh:
+            main(fh)
