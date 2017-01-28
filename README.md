@@ -61,8 +61,8 @@ At present the script has a number of limitations:
 # Dependencies
 
  * Python 3
- * fork of pdfminer with Python3 support: `git clone https://github.com/goulu/pdfminer`
-  * chardet and six packages (needed for pdfminer): `pip install chardet six` 
+ * fork of pdfminer with Python3 support: `git clone https://github.com/pdfminer/pdfminer.six`
+  * chardet and six packages (needed for pdfminer): `pip install chardet six`
 
 
 # FAQ
