@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import print_function
-import sys, io
+import sys, io, textwrap
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
 from pdfminer.layout import LAParams, LTContainer, LTPage, LTAnno, LTText, LTChar, LTTextLine, LTTextBox
@@ -187,6 +187,8 @@ def nearest_outline(outlines, pageno, mediabox, pos):
 
 def prettyprint(annots, outlines, mediaboxes):
 
+    tw = textwrap.TextWrapper(width=80, initial_indent=" * ", subsequent_indent="   ")
+
     def fmtpos(annot):
         apos = annot.getstartpos()
         if apos:
@@ -207,17 +209,23 @@ def prettyprint(annots, outlines, mediaboxes):
         else:
             return ''
 
+    def printitem(*args):
+        msg = ' '.join(args)
+        print(tw.fill(msg) + "\n")
+
     nits = [a for a in annots if a.tagname in ['squiggly', 'strikeout', 'underline']]
     comments = [a for a in annots if a.tagname in ['highlight', 'text'] and a.contents]
     highlights = [a for a in annots if a.tagname == 'highlight' and a.contents is None]
     
     if highlights:
-        print("Highlights:")
+        print("## Highlights\n")
         for a in highlights:
-            print(fmtpos(a), fmttext(a), "\n")
+            printitem(fmtpos(a), fmttext(a))
 
     if comments:
-        print("\nDetailed comments:")
+        if highlights:
+            print() # blank
+        print("## Detailed comments\n")
         for a in comments:
             text = fmttext(a)
             if text:
@@ -226,18 +234,20 @@ def prettyprint(annots, outlines, mediaboxes):
                 firstword = contents.split()[0]
                 if firstword != 'I' and not firstword.startswith("I'"):
                     contents = contents[0].lower() + contents[1:]
-                print(fmtpos(a), "Regarding", text + ",", contents, "\n")
+                printitem(fmtpos(a), "Regarding", text + ",", contents)
             else:
-                print(fmtpos(a), a.contents, "\n")
+                printitem(fmtpos(a), a.contents)
 
     if nits:
-        print("\nNits:")
+        if highlights or comments:
+            print() #  blank
+        print("## Nits\n")
         for a in nits:
             text = fmttext(a)
             if a.contents:
-                print(fmtpos(a), "%s -> %s" % (text, a.contents))
+                printitem(fmtpos(a), "%s -> %s" % (text, a.contents))
             else:
-                print(fmtpos(a), "%s" % text)
+                printitem(fmtpos(a), "%s" % text)
 
 def resolve_dest(doc, dest):
     if isinstance(dest, bytes):
