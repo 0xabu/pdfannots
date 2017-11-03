@@ -5,7 +5,7 @@ from __future__ import print_function
 import sys, io, textwrap
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
-from pdfminer.layout import LAParams, LTContainer, LTPage, LTAnno, LTText, LTChar, LTTextLine, LTTextBox
+from pdfminer.layout import LAParams, LTContainer, LTAnno, LTText, LTTextBox
 from pdfminer.converter import TextConverter
 from pdfminer.pdfparser import PDFParser
 from pdfminer.pdfdocument import PDFDocument, PDFNoOutlines
@@ -54,6 +54,7 @@ class RectExtractor(TextConverter):
         dummy = io.StringIO()
         TextConverter.__init__(self, rsrcmgr, outfp=dummy, codec=codec, pageno=pageno, laparams=laparams)
         self.annots = []
+        self._lasthit = []
 
     def setcoords(self, annots):
         self.annots = [a for a in annots if a.boxes]
@@ -98,7 +99,7 @@ class Annotation:
         if coords is None:
             self.boxes = None
         else:
-            assert(len(coords) % 8 == 0)
+            assert len(coords) % 8 == 0
             self.boxes = []
             while coords != []:
                 (x0,y0,x1,y1,x2,y2,x3,y3) = coords[:8]
@@ -216,7 +217,7 @@ def prettyprint(annots, outlines, mediaboxes):
     nits = [a for a in annots if a.tagname in ['squiggly', 'strikeout', 'underline']]
     comments = [a for a in annots if a.tagname in ['highlight', 'text'] and a.contents]
     highlights = [a for a in annots if a.tagname == 'highlight' and a.contents is None]
-    
+
     if highlights:
         print("## Highlights\n")
         for a in highlights:
@@ -268,7 +269,7 @@ class Outline:
 
 def get_outlines(doc, pagesdict):
     result = []
-    for (level, title, destname, actionref, _) in doc.get_outlines():
+    for (_, title, destname, actionref, _) in doc.get_outlines():
         if destname is None and actionref:
             action = actionref.resolve()
             if isinstance(action, dict):
@@ -283,7 +284,7 @@ def get_outlines(doc, pagesdict):
         result.append(Outline(title, destname, pageno, targetx, targety))
     return result
 
-def main(fh):
+def printannots(fh):
     rsrcmgr = PDFResourceManager()
     laparams = LAParams()
     device = RectExtractor(rsrcmgr, laparams=laparams)
@@ -298,7 +299,7 @@ def main(fh):
     for (pageno, page) in enumerate(PDFPage.create_pages(doc)):
         pagesdict[page.pageid] = pageno
         mediaboxes[pageno] = page.mediabox
-        if page.annots is None or page.annots is []:
+        if page.annots is None or page.annots == []:
             continue
 
         # emit progress indicator
@@ -320,14 +321,13 @@ def main(fh):
         sys.stderr.write("Document doesn't include outlines (\"bookmarks\")\n")
     except:
         e = sys.exc_info()[0]
-        sys.stderr.write("Warning: failed to retrieve outlines: %s\n" % e) 
+        sys.stderr.write("Warning: failed to retrieve outlines: %s\n" % e)
 
     device.close()
 
     prettyprint(allannots, outlines, mediaboxes)
 
-
-if __name__ == "__main__":
+def main():
     if len(sys.argv) != 2:
         sys.stderr.write("Usage: %s FILE.PDF\n" % sys.argv[0])
         sys.exit(1)
@@ -339,4 +339,7 @@ if __name__ == "__main__":
         sys.exit(1)
     else:
         with fh:
-            main(fh)
+            printannots(fh)
+
+if __name__ == "__main__":
+    main()
