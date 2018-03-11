@@ -306,7 +306,13 @@ def printannots(fh):
         sys.stderr.write((" " if pageno > 0 else "") + "%d" % (pageno + 1))
         sys.stderr.flush()
 
-        pdfannots = [ar.resolve() for ar in pdftypes.resolve1(page.annots)]
+        pdfannots = []
+        for a in pdftypes.resolve1(page.annots):
+            if isinstance(a, pdftypes.PDFObjRef):
+                pdfannots.append(a.resolve())
+            else:
+                sys.stderr.write('Warning: unknown annotation: %s\n' % a)
+
         pageannots = getannots(pdfannots, pageno)
         device.setcoords(pageannots)
         interpreter.process_page(page)
