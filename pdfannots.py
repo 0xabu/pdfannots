@@ -13,10 +13,6 @@ from pdfminer.psparser import PSLiteralTable, PSLiteral
 import pdfminer.pdftypes as pdftypes
 import pdfminer.settings
 
-from colormath.color_objects import sRGBColor, LabColor
-from colormath.color_conversions import convert_color
-from colormath.color_diff import delta_e_cie2000
-
 pdfminer.settings.STRICT = False
 
 SUBSTITUTIONS = {
@@ -24,18 +20,6 @@ SUBSTITUTIONS = {
     u'ﬁ': 'fi',
     u'ﬂ': 'fl',
     u'’': "'",
-}
-
-# A first attempt to define generic colors with Delta-E distances below 49
-# compared againt both Preview.App's and DEVONthink ToGo's PDF default highlight colors.
-# http://colormine.org/delta-e-calculator
-# http://zschuessler.github.io/DeltaE/learn/
-COLORS = {
-    'blue'   : sRGBColor(0.294117647059, 0.588235294118, 1.0           ),
-    'yellow' : sRGBColor(1.0           , 0.78431372549 , 0.196078431373),
-    'green'  : sRGBColor(0.78431372549 , 1             , 0.392156862745),
-    'lilac'  : sRGBColor(0.78431372549 , 0.392156862745, 0.78431372549 ),
-    'rose'   : sRGBColor(1.0           , 0.196078431373, 0.392156862745)
 }
 
 ANNOT_SUBTYPES = set(['Text', 'Highlight', 'Squiggly', 'StrikeOut', 'Underline'])
@@ -102,29 +86,24 @@ class RectExtractor(TextConverter):
         render(ltpage)
 
 class Annotation:
-    def __init__(self, pageno, tagname, coords=None, rect=None, contents=None, color=None):
+    def __init__(self, pageno, tagname, coords=None, rect=None, contents=None):
         self.pageno = pageno
         self.tagname = tagname
         if contents == '':
             self.contents = None
         else:
             self.contents = contents
-        if color == '':
-            self.color = None
-        else:
-            self.colorname = self.getColorName(color)
         if rect is not None:
             self.rect = rect
         else:
             self.rect = None
         self.text = ''
 
-        #print("xxx " + type(coords).__name__ + " xxx")
-        #'pdfminer.pdftypes.PDFObjRef'
+
         if coords is None or isinstance(coords, pdfminer.pdftypes.PDFObjRef):
             self.boxes = None
         else:
-        #try:
+        try:
             assert len(coords) % 8 == 0
             self.boxes = []
             while coords != []:
@@ -134,28 +113,8 @@ class Annotation:
                 yvals = [y0, y1, y2, y3]
                 box = (min(xvals), min(yvals), max(xvals), max(yvals))
                 self.boxes.append(box)
-        #except:
-        #    sys.stderr.write('No boxes found')
-
-    # Determine neartest color based on Delta-E difference between input and reference colors.
-    def getColorName(self, color):
-        # Create sRGBColor object from input
-        try:
-            annotationcolor = sRGBColor(color[0], color[1], color[2])
-        except TypeError:
-            # In case something goes wrong, return green
-            return 'green'
-
-        deltae = {}
-        
-        # Iterate over reference colors and calculate Delta-E for each one.
-        # deltae will contain a dictionary in the form of 'colorname': <float> deltae.
-        for colorname, referencecolor in COLORS.items():
-            deltae[colorname] = delta_e_cie2000(convert_color(referencecolor, LabColor), convert_color(annotationcolor, LabColor))
-        
-        # return first key from dictionary sorted asc by value
-        likelycolor = sorted(deltae, key=deltae.get)[0]
-        return likelycolor
+        except:
+            sys.stderr.write('No boxes found')
 
     def capture(self, text):
         if text == '\n':
@@ -195,7 +154,7 @@ def getannots(pdfannots, pageno):
         if contents is not None:
             contents = str(contents, 'iso8859-15') #'utf-8'
             contents = contents.replace('\r\n', '\n').replace('\r', '\n')
-        a = Annotation(pageno, subtype.name.lower(), pa.get('QuadPoints'), pa.get('Rect'), contents, pa.get('C'))
+        a = Annotation(pageno, subtype.name.lower(), pa.get('QuadPoints'), pa.get('Rect'), contents)
         annots.append(a)
 
     return annots
@@ -237,30 +196,23 @@ def nearest_outline(outlines, pageno, mediabox, pos):
 
 def prettyprint(annots, outlines, mediaboxes):
 
+    tw = textwrap.TextWrapper(width=80, initial_indent=" * ", subsequent_indent="   ")
+
     def fmtpos(annot):
         apos = annot.getstartpos()
         if apos:
             o = nearest_outline(outlines, annot.pageno, mediaboxes[annot.pageno], apos)
         else:
             o = None
-        
         if o:
-            return "\nSeite %d (%s)" % (annot.pageno + 1, o.title)
+            return "Page %d (%s):" % (annot.pageno + 1, o.title)
         else:
-            return "\nSeite %d" % (annot.pageno + 1)
+            return "Page %d:" % (annot.pageno + 1)
 
     def fmttext(annot):
         if annot.boxes:
-            prefix = "\n"
-            if annot.colorname == 'blue':
-                prefix = prefix + '## '
-            elif annot.colorname == 'lilac':
-                prefix = prefix + '### '
-            elif annot.colorname == 'yellow':
-                prefix = prefix + 'Quellenangabe: '
-
             if annot.gettext():
-                return prefix + '%s' % annot.gettext()
+                return '"%s"' % annot.gettext()
             else:
                 return "(XXX: missing text!)"
         else:
@@ -268,21 +220,21 @@ def prettyprint(annots, outlines, mediaboxes):
 
     def printitem(*args):
         msg = ' '.join(args)
-        print(msg)
+        print(tw.fill(msg) + "\n")
 
     nits = [a for a in annots if a.tagname in ['squiggly', 'strikeout', 'underline']]
     comments = [a for a in annots if a.tagname in ['highlight', 'text'] and a.contents]
     highlights = [a for a in annots if a.tagname == 'highlight' and a.contents is None]
 
     if highlights:
-        print("# Highlights")
+        print("## Highlights\n")
         for a in highlights:
-            printitem(fmttext(a), fmtpos(a))
+            printitem(fmtpos(a), fmttext(a))
 
     if comments:
         if highlights:
             print() # blank
-        print("# Detailed comments")
+        print("## Detailed comments\n")
         for a in comments:
             text = fmttext(a)
             if text:
@@ -298,7 +250,7 @@ def prettyprint(annots, outlines, mediaboxes):
     if nits:
         if highlights or comments:
             print() #  blank
-        print("# Nits")
+        print("## Nits\n")
         for a in nits:
             text = fmttext(a)
             if a.contents:
