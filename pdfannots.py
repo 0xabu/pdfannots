@@ -217,7 +217,7 @@ def prettyprint(annots, outlines, mediaboxes):
             print(fmtpos(a), fmttext(a), "\n")
 
     if comments:
-        print("\nDetailed comments:")
+        print("\nDetailed comments:\n")
         for a in comments:
             text = fmttext(a)
             if text:
@@ -231,13 +231,13 @@ def prettyprint(annots, outlines, mediaboxes):
                 print(fmtpos(a), a.contents, "\n")
 
     if nits:
-        print("\nNits:")
+        print("Nits:\n")
         for a in nits:
             text = fmttext(a)
             if a.contents:
-                print(fmtpos(a), "%s -> %s" % (text, a.contents))
+                print("*", fmtpos(a), "%s -> %s\n" % (text, a.contents))
             else:
-                print(fmtpos(a), "%s" % text)
+                print("*", fmtpos(a), "%s\n" % text)
 
 def resolve_dest(doc, dest):
     if isinstance(dest, bytes):
