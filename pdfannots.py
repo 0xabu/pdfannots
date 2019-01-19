@@ -146,7 +146,10 @@ def getannots(pdfannots, pageno):
         if contents is not None:
             contents = str(contents, 'iso8859-15') #'utf-8'
             contents = contents.replace('\r\n', '\n').replace('\r', '\n')
-        a = Annotation(pageno, subtype.name.lower(), pa.get('QuadPoints'), pa.get('Rect'), contents)
+
+        coords = pdftypes.resolve1(pa.get('QuadPoints'))
+        rect = pdftypes.resolve1(pa.get('Rect'))
+        a = Annotation(pageno, subtype.name.lower(), coords, rect, contents)
         annots.append(a)
 
     return annots
