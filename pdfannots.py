@@ -24,6 +24,8 @@ SUBSTITUTIONS = {
     u'ﬁ': 'fi',
     u'ﬂ': 'fl',
     u'’': "'",
+    u'“': "``",
+    u'”': "''",
 }
 
 ANNOT_SUBTYPES = set(['Text', 'Highlight', 'Squiggly', 'StrikeOut', 'Underline'])
@@ -254,12 +256,7 @@ def prettyprint(packed_annots, outfile, wrap, sections):
             for a in comments:
                 text = fmttext(a)
                 if text:
-                    # XXX: lowercase the first word, to join it to the "Regarding" sentence
-                    contents = a.contents
-                    firstword = contents.split()[0]
-                    if firstword != 'I' and not firstword.startswith("I'"):
-                        contents = contents[0].lower() + contents[1:]
-                    printitem(fmtpos(a), "Regarding", text + ",", contents)
+                    printitem(fmtpos(a), text, "--", a.contents)
                 else:
                     printitem(fmtpos(a), a.contents)
 
@@ -268,7 +265,7 @@ def prettyprint(packed_annots, outfile, wrap, sections):
             for a in nits:
                 text = fmttext(a)
                 if a.contents:
-                    printitem(fmtpos(a), "%s -> %s" % (text, a.contents))
+                    printitem(fmtpos(a), text, "--", a.contents)
                 else:
                     printitem(fmtpos(a), "%s" % text)
 
