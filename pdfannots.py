@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+"""
+Extracts annotations from a PDF file in a text format for use in reviewing.
+"""
+
 from __future__ import print_function
-import sys, io, textwrap
+import sys, io, textwrap, argparse
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
 from pdfminer.layout import LAParams, LTContainer, LTAnno, LTText, LTTextBox
@@ -189,9 +193,9 @@ def nearest_outline(outlines, pageno, mediabox, pos):
     return prev
 
 
-def prettyprint(annots, outlines, mediaboxes):
+def prettyprint(packed_annots, outfile, wrap, sections):
 
-    tw = textwrap.TextWrapper(width=80, initial_indent=" * ", subsequent_indent="   ")
+    (annots, outlines, mediaboxes) = packed_annots
 
     def fmtpos(annot):
         apos = annot.getstartpos()
@@ -213,45 +217,60 @@ def prettyprint(annots, outlines, mediaboxes):
         else:
             return ''
 
+    if wrap:
+        tw = textwrap.TextWrapper(width=wrap, initial_indent=" * ", subsequent_indent="   ")
+
     def printitem(*args):
         msg = ' '.join(args)
-        print(tw.fill(msg) + "\n")
+
+        if wrap:
+            msg = tw.fill(msg)
+        else:
+            msg = " * " + msg
+
+        print(msg + "\n", file=outfile)
+
+    def printheader(name):
+        # emit blank separator line if needed
+        if printheader.called:
+            print("\n", file=outfile)
+        else:
+            printheader.called = True
+        print("## " + name + "\n", file=outfile)
+    printheader.called = False
 
     nits = [a for a in annots if a.tagname in ['squiggly', 'strikeout', 'underline']]
     comments = [a for a in annots if a.tagname in ['highlight', 'text'] and a.contents]
     highlights = [a for a in annots if a.tagname == 'highlight' and a.contents is None]
 
-    if highlights:
-        print("## Highlights\n")
-        for a in highlights:
-            printitem(fmtpos(a), fmttext(a))
+    for secname in sections:
+        if highlights and secname == 'highlights':
+            printheader("Highlights")
+            for a in highlights:
+                printitem(fmtpos(a), fmttext(a))
 
-    if comments:
-        if highlights:
-            print() # blank
-        print("## Detailed comments\n")
-        for a in comments:
-            text = fmttext(a)
-            if text:
-                # XXX: lowercase the first word, to join it to the "Regarding" sentence
-                contents = a.contents
-                firstword = contents.split()[0]
-                if firstword != 'I' and not firstword.startswith("I'"):
-                    contents = contents[0].lower() + contents[1:]
-                printitem(fmtpos(a), "Regarding", text + ",", contents)
-            else:
-                printitem(fmtpos(a), a.contents)
+        if comments and secname == 'comments':
+            printheader("Detailed comments")
+            for a in comments:
+                text = fmttext(a)
+                if text:
+                    # XXX: lowercase the first word, to join it to the "Regarding" sentence
+                    contents = a.contents
+                    firstword = contents.split()[0]
+                    if firstword != 'I' and not firstword.startswith("I'"):
+                        contents = contents[0].lower() + contents[1:]
+                    printitem(fmtpos(a), "Regarding", text + ",", contents)
+                else:
+                    printitem(fmtpos(a), a.contents)
 
-    if nits:
-        if highlights or comments:
-            print() #  blank
-        print("## Nits\n")
-        for a in nits:
-            text = fmttext(a)
-            if a.contents:
-                printitem(fmtpos(a), "%s -> %s" % (text, a.contents))
-            else:
-                printitem(fmtpos(a), "%s" % text)
+        if nits and secname == 'nits':
+            printheader("Nits")
+            for a in nits:
+                text = fmttext(a)
+                if a.contents:
+                    printitem(fmtpos(a), "%s -> %s" % (text, a.contents))
+                else:
+                    printitem(fmtpos(a), "%s" % text)
 
 def resolve_dest(doc, dest):
     if isinstance(dest, bytes):
@@ -287,7 +306,7 @@ def get_outlines(doc, pagesdict):
         result.append(Outline(title, destname, pageno, targetx, targety))
     return result
 
-def printannots(fh):
+def process_file(fh, emit_progress):
     rsrcmgr = PDFResourceManager()
     laparams = LAParams()
     device = RectExtractor(rsrcmgr, laparams=laparams)
@@ -306,8 +325,9 @@ def printannots(fh):
             continue
 
         # emit progress indicator
-        sys.stderr.write((" " if pageno > 0 else "") + "%d" % (pageno + 1))
-        sys.stderr.flush()
+        if emit_progress:
+            sys.stderr.write((" " if pageno > 0 else "") + "%d" % (pageno + 1))
+            sys.stderr.flush()
 
         pdfannots = []
         for a in pdftypes.resolve1(page.annots):
@@ -321,34 +341,44 @@ def printannots(fh):
         interpreter.process_page(page)
         allannots.extend(pageannots)
 
-    sys.stderr.write("\n")
+    if emit_progress:
+        sys.stderr.write("\n")
 
     outlines = []
     try:
         outlines = get_outlines(doc, pagesdict)
     except PDFNoOutlines:
-        sys.stderr.write("Document doesn't include outlines (\"bookmarks\")\n")
+        if emit_progress:
+            sys.stderr.write("Document doesn't include outlines (\"bookmarks\")\n")
     except:
         e = sys.exc_info()[0]
         sys.stderr.write("Warning: failed to retrieve outlines: %s\n" % e)
 
     device.close()
 
-    prettyprint(allannots, outlines, mediaboxes)
+    return (allannots, outlines, mediaboxes)
+
+def parse_args():
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("input", metavar="INFILE", type=argparse.FileType("rb"),
+                   help="PDF file to process")
+    p.add_argument("-o", metavar="OUTFILE", type=argparse.FileType("w"), dest="output",
+                   default=sys.stdout, help="output file (default is stdout)")
+    allsects = ["highlights", "comments", "nits"]
+    p.add_argument("-s", "--sections", metavar="SEC", nargs="*",
+                   choices=allsects, default=allsects,
+                   help=("sections to emit (default: %s)" % ', '.join(allsects)))
+    p.add_argument("-w", "--wrap", metavar="COLS", type=int,
+                   help="wrap text at this many columns")
+    p.add_argument("-p", "--progress", default=False, action="store_true",
+                   help="emit progress information")
+    return p.parse_args()
 
 def main():
-    if len(sys.argv) != 2:
-        sys.stderr.write("Usage: %s FILE.PDF\n" % sys.argv[0])
-        sys.exit(1)
-
-    try:
-        fh = open(sys.argv[1], 'rb')
-    except OSError as e:
-        sys.stderr.write("Error: %s\n" % e)
-        sys.exit(1)
-    else:
-        with fh:
-            printannots(fh)
+    args = parse_args()
+    annots = process_file(args.input, args.progress)
+    prettyprint(annots, args.output, args.wrap, args.sections)
+    return 0
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
