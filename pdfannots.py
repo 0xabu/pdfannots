@@ -335,10 +335,12 @@ def get_outlines(doc, pagesdict):
         if destname is None:
             continue
         dest = resolve_dest(doc, destname)
-        page = pagesdict[dest[0].objid]
-        (_, _, targetx, targety, _) = dest
-        pos = Pos(page, targetx, targety)
-        result.append(Outline(title, destname, pos))
+        # consider targets of the form [page /XYZ left top zoom]
+        if dest[1] is PSLiteralTable.intern('XYZ'):
+            (pageref, _, targetx, targety, _) = dest
+            page = pagesdict[pageref.objid]
+            pos = Pos(page, targetx, targety)
+            result.append(Outline(title, destname, pos))
     return result
 
 def process_file(fh, codec, emit_progress):
@@ -383,9 +385,8 @@ def process_file(fh, codec, emit_progress):
     except PDFNoOutlines:
         if emit_progress:
             sys.stderr.write("Document doesn't include outlines (\"bookmarks\")\n")
-    except:
-        e = sys.exc_info()[0]
-        sys.stderr.write("Warning: failed to retrieve outlines: %s\n" % e)
+    except Exception as ex:
+        sys.stderr.write("Warning: failed to retrieve outlines: %s\n" % ex)
 
     device.close()
 
