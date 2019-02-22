@@ -8,7 +8,7 @@ Extracts annotations from a PDF file in a text format for use in reviewing.
 import sys, io, textwrap, argparse, codecs
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
-from pdfminer.layout import LAParams, LTContainer, LTAnno, LTText, LTTextBox
+from pdfminer.layout import LAParams, LTContainer, LTAnno, LTChar, LTTextBox
 from pdfminer.converter import TextConverter
 from pdfminer.pdfparser import PDFParser
 from pdfminer.pdfdocument import PDFDocument, PDFNoOutlines
@@ -58,37 +58,62 @@ class RectExtractor(TextConverter):
     def __init__(self, rsrcmgr, codec='utf-8', pageno=1, laparams=None):
         dummy = io.StringIO()
         TextConverter.__init__(self, rsrcmgr, outfp=dummy, codec=codec, pageno=pageno, laparams=laparams)
-        self.annots = []
-        self._lasthit = []
+        self.annots = set()
 
-    def setcoords(self, annots):
-        self.annots = [a for a in annots if a.boxes]
-        self._lasthit = []
+    def setannots(self, annots):
+        self.annots = {a for a in annots if a.boxes}
+
+    # main callback from parent PDFConverter
+    def receive_layout(self, ltpage):
+        self._lasthit = frozenset()
+        self._curline = set()
+        self.render(ltpage)
 
     def testboxes(self, item):
-        self._lasthit = []
-        for a in self.annots:
-            if any([boxhit(item, b) for b in a.boxes]):
-                self._lasthit.append(a)
-        return self._lasthit
+        hits = frozenset({a for a in self.annots if any({boxhit(item, b) for b in a.boxes})})
+        self._lasthit = hits
+        self._curline.update(hits)
+        return hits
 
-    def receive_layout(self, ltpage):
-        def render(item):
-            if isinstance(item, LTContainer):
-                for child in item:
-                    render(child)
-            elif isinstance(item, LTAnno):
-                # this catches whitespace
-                for a in self._lasthit:
-                    a.capture(item.get_text())
-            elif isinstance(item, LTText):
-                for a in self.testboxes(item):
-                    a.capture(item.get_text())
+    # "broadcast" newlines to _all_ annotations that received any text on the
+    # current line, in case they see more text on the next line, even if the
+    # most recent character was not covered.
+    def capture_newline(self):
+        for a in self._curline:
+            a.capture('\n')
+        self._curline = set()
+
+    def render(self, item):
+        # If it's a container, recurse on nested items.
+        if isinstance(item, LTContainer):
+            for child in item:
+                self.render(child)
+
+            # Text boxes are a subclass of container, and somehow encode newlines
+            # (this weird logic is derived from pdfminer.converter.TextConverter)
             if isinstance(item, LTTextBox):
-                for a in self.testboxes(item):
-                    a.capture('\n')
+                self.testboxes(item)
+                self.capture_newline()
 
-        render(ltpage)
+        # Each character is represented by one LTChar, and we must handle
+        # individual characters (not higher-level objects like LTTextLine)
+        # so that we can capture only those covered by the annotation boxes.
+        elif isinstance(item, LTChar):
+            for a in self.testboxes(item):
+                a.capture(item.get_text())
+
+        # Annotations capture whitespace not explicitly encoded in
+        # the text. They don't have an (X,Y) position, so we need some
+        # heuristics to match them to the nearby annotations.
+        elif isinstance(item, LTAnno):
+            text = item.get_text()
+            if text == '\n':
+                self.capture_newline()
+            else:
+                for a in self._lasthit:
+                    a.capture(text)
+
+
 
 class Page:
     def __init__(self, pageno, mediabox):
@@ -128,10 +153,16 @@ class Annotation:
 
     def capture(self, text):
         if text == '\n':
-            # kludge for latex: elide hyphens, join lines
+            # Kludge for latex: elide hyphens
             if self.text.endswith('-'):
                 self.text = self.text[:-1]
-            else:
+
+            # Join lines, treating newlines as space, while ignoring successive
+            # newlines. This makes it easier for the for the renderer to
+            # "broadcast" LTAnno newlines to active annotations regardless of
+            # box hits. (Detecting paragraph breaks is tricky anyway, and left
+            # for future future work!)
+            elif not self.text.endswith(' '):
                 self.text += ' '
         else:
             self.text += text
@@ -372,7 +403,7 @@ def process_file(fh, codec, emit_progress):
 
             page.annots = getannots(pdfannots, page, codec)
             page.annots.sort()
-            device.setcoords(page.annots)
+            device.setannots(page.annots)
             interpreter.process_page(pdfpage)
             allannots.extend(page.annots)
 
