@@ -27,7 +27,8 @@ SUBSTITUTIONS = {
     u'”': "''",
 }
 
-ANNOT_SUBTYPES = set(['Text', 'Highlight', 'Squiggly', 'StrikeOut', 'Underline'])
+ANNOT_SUBTYPES = frozenset({'Text', 'Highlight', 'Squiggly', 'StrikeOut', 'Underline'})
+ANNOT_NITS = frozenset({'Squiggly', 'StrikeOut', 'Underline'})
 
 DEBUG_BOXHIT = False
 
@@ -237,13 +238,23 @@ def getannots(pdfannots, page, codec):
 
         coords = pdftypes.resolve1(pa.get('QuadPoints'))
         rect = pdftypes.resolve1(pa.get('Rect'))
-        a = Annotation(page, subtype.name.lower(), coords, rect, contents)
+        a = Annotation(page, subtype.name, coords, rect, contents)
         annots.append(a)
 
     return annots
 
-def prettyprint(packed_annots, outfile, wrap, sections):
-    (annots, outlines) = packed_annots
+def prettyprint(annots, outlines, outfile, do_group, sections, wrapcol):
+    """
+    Pretty-print the extracted annotations according to the output options.
+
+    annots   List of extracted annotations, in the order they appear
+    outlines List of outlines
+    outfile  Output file handle to print to
+    do_group Boolean, enables grouping by annotation type
+    sections When grouping by type, this controls the order of sections output
+             e.g.: ["highlights", "comments", "nits"]
+    wrapcol  If not None, specifies the column at which output is word-wrapped
+    """
 
     def nearest_outline(pos):
         prev = None
@@ -258,9 +269,9 @@ def prettyprint(packed_annots, outfile, wrap, sections):
         apos = annot.getstartpos()
         o = nearest_outline(apos) if apos else None
         if o:
-            return "Page %d (%s): " % (annot.page.pageno + 1, o.title)
+            return "Page %d (%s)" % (annot.page.pageno + 1, o.title)
         else:
-            return "Page %d: " % (annot.page.pageno + 1)
+            return "Page %d" % (annot.page.pageno + 1)
 
     def fmttext(annot):
         if annot.boxes:
@@ -271,35 +282,42 @@ def prettyprint(packed_annots, outfile, wrap, sections):
         else:
             return ''
 
-    if wrap:
-        # we'll need two text wrappers, one for the leading bullet on the first paragraph, one without the bullet.
-        tw1 = textwrap.TextWrapper(width=wrap, initial_indent=" * ", subsequent_indent="   ")
-        tw2 = textwrap.TextWrapper(width=wrap, initial_indent="   ", subsequent_indent="   ")
+    if wrapcol:
+        # we need two text wrappers: one for the leading bullet on the first paragraph, one without
+        tw1 = textwrap.TextWrapper(width=wrapcol, initial_indent=" * ", subsequent_indent="   ")
+        tw2 = textwrap.TextWrapper(width=wrapcol, initial_indent="   ", subsequent_indent="   ")
 
-    def printitem(annot, part1, part2=None):
+    def printannot(annot, extra=None):
+        # we are either printing: item text and item contents, or one of the two
+        # if we see an annotation with neither, something has gone wrong
+        parts = [s for s in [fmttext(annot), annot.contents] if s]
+        assert parts != []
+
         # break each part into paragraphs
-        lines1 = [l for l in part1.splitlines() if l]
-        assert lines1
-        lines2 = [l for l in part2.splitlines() if l] if part2 else None
+        lines = [[l for l in p.splitlines() if l] for p in parts]
+        assert len(lines) in {1,2}
 
-        if lines2:
+        if len(lines) > 1:
             # If we have a short text section and a short comment, join them
             # into one paragraph. Otherwise, we'll use multiple output paragraphs.
-            if len(lines1) == 1 and len(lines2) == 1:
-                msglines = [lines1[0] + " -- " + lines2[0]]
+            if len(lines[0]) == 1 and len(lines[1]) == 1:
+                msglines = [lines[0][0] + " -- " + lines[1][0]]
             else:
-                msglines = lines1 + ["-- " + lines2[0]] + lines2[1:]
+                msglines = lines[0] + ["-- " + lines[1][0]] + lines[1][1:]
         else:
-            msglines = lines1
+            msglines = lines[0]
 
-        # prepend the formatted position
-        msglines[0] = fmtpos(annot) + msglines[0]
+        # prepend the formatted position (and extra bit if needed)
+        label = fmtpos(annot) + (" " + extra if extra else "")
+        msglines[0] = label + ": " + msglines[0]
 
-        if wrap:
+        # emit Markdown bullet, wrapped as desired
+        if wrapcol:
             msg = tw1.fill(msglines[0]) + ('\n\n' if msglines[1:] else '') + '\n\n'.join(tw2.fill(m) for m in msglines[1:])
         else:
             msg = " * " + msglines[0] + ('\n' if msglines[1:] else '') + '\n'.join('   ' + m for m in msglines[1:])
 
+        # print it!
         print(msg + "\n", file=outfile)
 
     def printheader(name):
@@ -311,33 +329,30 @@ def prettyprint(packed_annots, outfile, wrap, sections):
         print("## " + name + "\n", file=outfile)
     printheader.called = False
 
-    nits = [a for a in annots if a.tagname in ['squiggly', 'strikeout', 'underline']]
-    comments = [a for a in annots if a.tagname in ['highlight', 'text'] and a.contents]
-    highlights = [a for a in annots if a.tagname == 'highlight' and a.contents is None]
+    if do_group:
+        highlights = [a for a in annots if a.tagname == 'Highlight' and a.contents is None]
+        comments = [a for a in annots if a.tagname not in ANNOT_NITS and a.contents]
+        nits = [a for a in annots if a.tagname in ANNOT_NITS]
 
-    for secname in sections:
-        if highlights and secname == 'highlights':
-            printheader("Highlights")
-            for a in highlights:
-                printitem(a, fmttext(a))
+        for secname in sections:
+            if highlights and secname == 'highlights':
+                printheader("Highlights")
+                for a in highlights:
+                    printannot(a)
 
-        if comments and secname == 'comments':
-            printheader("Detailed comments")
-            for a in comments:
-                text = fmttext(a)
-                if text:
-                    printitem(a, text, a.contents)
-                else:
-                    printitem(a, a.contents)
+            if comments and secname == 'comments':
+                printheader("Detailed comments")
+                for a in comments:
+                    printannot(a)
 
-        if nits and secname == 'nits':
-            printheader("Nits")
-            for a in nits:
-                text = fmttext(a)
-                if a.contents:
-                    printitem(a, text, a.contents)
-                else:
-                    printitem(a, text)
+            if nits and secname == 'nits':
+                printheader("Nits")
+                for a in nits:
+                    printannot(a)
+
+    else:
+        for a in annots:
+            printannot(a, a.tagname)
 
 def resolve_dest(doc, dest):
     if isinstance(dest, bytes):
@@ -425,26 +440,34 @@ def process_file(fh, codec, emit_progress):
 
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
+
     p.add_argument("input", metavar="INFILE", type=argparse.FileType("rb"),
                    help="PDF file to process")
-    p.add_argument("-o", metavar="OUTFILE", type=argparse.FileType("w"), dest="output",
+
+    g = p.add_argument_group('Basic options')
+    g.add_argument("-p", "--progress", default=False, action="store_true",
+                   help="emit progress information")
+    g.add_argument("-c", "--codec", default="cp1252", type=codecs.lookup,
+                   help="text encoding for annotations (default: windows-1252)")
+    g.add_argument("-o", metavar="OUTFILE", type=argparse.FileType("w"), dest="output",
                    default=sys.stdout, help="output file (default is stdout)")
+
+    g = p.add_argument_group('Options controlling output format')
     allsects = ["highlights", "comments", "nits"]
-    p.add_argument("-s", "--sections", metavar="SEC", nargs="*",
+    g.add_argument("-s", "--sections", metavar="SEC", nargs="*",
                    choices=allsects, default=allsects,
                    help=("sections to emit (default: %s)" % ', '.join(allsects)))
-    p.add_argument("-w", "--wrap", metavar="COLS", type=int,
+    g.add_argument("--no-group", dest="group", default=True, action="store_false",
+                   help="emit annotations in order, don't group into sections")
+    g.add_argument("-w", "--wrap", metavar="COLS", type=int,
                    help="wrap text at this many columns")
-    p.add_argument("-p", "--progress", default=False, action="store_true",
-                   help="emit progress information")
-    p.add_argument("-c", "--codec", default="cp1252", type=codecs.lookup,
-                   help="text encoding for annotations (default: windows-1252)")
+
     return p.parse_args()
 
 def main():
     args = parse_args()
-    annots = process_file(args.input, args.codec, args.progress)
-    prettyprint(annots, args.output, args.wrap, args.sections)
+    (annots, outlines) = process_file(args.input, args.codec, args.progress)
+    prettyprint(annots, outlines, args.output, args.group, args.sections, args.wrap)
     return 0
 
 if __name__ == "__main__":
