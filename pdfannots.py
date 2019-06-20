@@ -383,7 +383,10 @@ def get_outlines(doc, pagesdict):
         dest = resolve_dest(doc, destname)
         # consider targets of the form [page /XYZ left top zoom]
         if dest[1] is PSLiteralTable.intern('XYZ'):
-            (pageref, _, targetx, targety, _) = dest
+            # note that dest might have variable length
+            pageref = dest[0]
+            targetx = dest[2]
+            targety = dest[3]
             page = pagesdict[pageref.objid]
             pos = Pos(page, targetx, targety)
             result.append(Outline(title, destname, pos))
