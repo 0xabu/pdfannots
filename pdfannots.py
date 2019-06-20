@@ -414,7 +414,12 @@ def process_file(fh, codec, emit_progress):
                 if isinstance(a, pdftypes.PDFObjRef):
                     pdfannots.append(a.resolve())
                 else:
-                    sys.stderr.write('Warning: unknown annotation: %s\n' % a)
+                    sname = a['Subtype'].name
+                    if sname == 'Link':
+                        # TODO Perhaps this needs to be handled in pdfminer
+                        continue
+                    else:
+                        sys.stderr.write('Warning: unknown annotation: %s\n' % a)
 
             page.annots = getannots(pdfannots, page, codec)
             page.annots.sort()
