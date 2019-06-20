@@ -373,7 +373,7 @@ def get_outlines(doc, pagesdict):
     result = []
     for (_, title, destname, actionref, _) in doc.get_outlines():
         if destname is None and actionref:
-            action = actionref.resolve()
+            action = actionref if isinstance(actionref, dict) else actionref.resolve()
             if isinstance(action, dict):
                 subtype = action.get('S')
                 if subtype is PSLiteralTable.intern('GoTo'):
