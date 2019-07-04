@@ -315,8 +315,10 @@ def prettyprint(annots, outlines, outfile, do_group, sections, wrapcol):
         if wrapcol:
             msg = tw1.fill(msglines[0]) + ('\n\n' if msglines[1:] else '') + '\n\n'.join(tw2.fill(m) for m in msglines[1:])
         else:
-            msg = " * " + msglines[0] + ('\n' if msglines[1:] else '') + '\n'.join('   ' + m for m in msglines[1:])
-
+            if a.tagname == 'Highlight':
+                msg = "> " + msglines[0] + ('\n' if msglines[1:] else '') + '\n'.join('   ' + m for m in msglines[1:])
+            else:
+                msg = "- " + msglines[0] + ('\n' if msglines[1:] else '') + '\n'.join('   ' + m for m in msglines[1:])
         # print it!
         print(msg + "\n", file=outfile)
 
