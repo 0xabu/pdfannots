@@ -23,8 +23,8 @@ SUBSTITUTIONS = {
     u'ﬁ': 'fi',
     u'ﬂ': 'fl',
     u'’': "'",
-    u'“': "``",
-    u'”': "''",
+    u'“': '"',
+    u'”': '"',
 }
 
 ANNOT_SUBTYPES = frozenset({'Text', 'Highlight', 'Squiggly', 'StrikeOut', 'Underline'})
@@ -115,7 +115,6 @@ class RectExtractor(TextConverter):
                     a.capture(text)
 
 
-
 class Page:
     def __init__(self, pageno, mediabox):
         self.pageno = pageno
@@ -127,6 +126,7 @@ class Page:
 
     def __lt__(self, other):
         return self.pageno < other.pageno
+
 
 class Annotation:
     def __init__(self, page, tagname, coords=None, rect=None, contents=None):
@@ -169,9 +169,13 @@ class Annotation:
             self.text += text
 
     def gettext(self):
-        if self.text:
-            # replace tex ligatures (and other common odd characters)
-            return ''.join([SUBSTITUTIONS.get(c, c) for c in self.text.strip()])
+        if self.boxes:
+            if self.text:
+                # replace tex ligatures (and other common odd characters)
+                return ''.join([SUBSTITUTIONS.get(c, c) for c in self.text.strip()])
+            else:
+                # something's strange -- we have boxes but no text for them
+                return "(XXX: missing text!)"
         else:
             return None
 
@@ -188,6 +192,7 @@ class Annotation:
     # custom < operator for sorting
     def __lt__(self, other):
         return self.getstartpos() < other.getstartpos()
+
 
 class Pos:
     def __init__(self, page, x, y):
@@ -224,6 +229,7 @@ class Pos:
             y = y1
         return (x, y)
 
+
 def getannots(pdfannots, page, codec):
     annots = []
     for pa in pdfannots:
@@ -243,93 +249,150 @@ def getannots(pdfannots, page, codec):
 
     return annots
 
-def prettyprint(annots, outlines, outfile, do_group, sections, wrapcol):
+
+class PrettyPrinter:
     """
     Pretty-print the extracted annotations according to the output options.
-
-    annots   List of extracted annotations, in the order they appear
-    outlines List of outlines
-    outfile  Output file handle to print to
-    do_group Boolean, enables grouping by annotation type
-    sections When grouping by type, this controls the order of sections output
-             e.g.: ["highlights", "comments", "nits"]
-    wrapcol  If not None, specifies the column at which output is word-wrapped
     """
+    def __init__(self, outlines, wrapcol):
+        """
+        outlines List of outlines
+        wrapcol  If not None, specifies the column at which output is word-wrapped
+        """
+        self.outlines = outlines
+        self.wrapcol = wrapcol
 
-    def nearest_outline(pos):
+        self.BULLET_INDENT1 = " * "
+        self.BULLET_INDENT2 = "   "
+        self.QUOTE_INDENT = self.BULLET_INDENT2 + "> "
+
+        if wrapcol:
+            # for bullets, we need two text wrappers: one for the leading bullet on the first paragraph, one without
+            self.bullet_tw1 = textwrap.TextWrapper(
+                width=wrapcol,
+                initial_indent=self.BULLET_INDENT1,
+                subsequent_indent=self.BULLET_INDENT2)
+
+            self.bullet_tw2 = textwrap.TextWrapper(
+                width=wrapcol,
+                initial_indent=self.BULLET_INDENT2,
+                subsequent_indent=self.BULLET_INDENT2)
+
+            # for blockquotes, each line is prefixed with "> "
+            self.quote_tw = textwrap.TextWrapper(
+                width=wrapcol,
+                initial_indent=self.QUOTE_INDENT,
+                subsequent_indent=self.QUOTE_INDENT)
+
+    def nearest_outline(self, pos):
         prev = None
-        for o in outlines:
+        for o in self.outlines:
             if o.pos < pos:
                 prev = o
             else:
                 break
         return prev
 
-    def fmtpos(annot):
+    def format_pos(self, annot):
         apos = annot.getstartpos()
-        o = nearest_outline(apos) if apos else None
+        o = self.nearest_outline(apos) if apos else None
         if o:
             return "Page %d (%s)" % (annot.page.pageno + 1, o.title)
         else:
             return "Page %d" % (annot.page.pageno + 1)
 
-    def fmttext(annot):
-        if annot.boxes:
-            if annot.gettext():
-                return '"%s"' % annot.gettext()
-            else:
-                return "(XXX: missing text!)"
+    # format a Markdown bullet, wrapped as desired
+    def format_bullet(self, paras, quotepos=None, quotelen=None):
+        # quotepos/quotelen specify the first paragraph (if any) to be formatted
+        # as a block-quote, and the length of the blockquote in paragraphs
+        if quotepos:
+            assert quotepos > 0
+            assert quotelen > 0
+            assert quotepos + quotelen <= len(paras)
+
+        # emit the first paragraph with the bullet
+        if self.wrapcol:
+            ret = self.bullet_tw1.fill(paras[0])
         else:
-            return ''
+            ret = self.BULLET_INDENT1 + paras[0]
 
-    if wrapcol:
-        # we need two text wrappers: one for the leading bullet on the first paragraph, one without
-        tw1 = textwrap.TextWrapper(width=wrapcol, initial_indent=" * ", subsequent_indent="   ")
-        tw2 = textwrap.TextWrapper(width=wrapcol, initial_indent="   ", subsequent_indent="   ")
+        # emit subsequent paragraphs
+        sep = '\n\n' if self.wrapcol else '\n'
+        npara = 1
+        for para in paras[1:]:
+            ret = ret + sep
 
-    def printannot(annot, extra=None):
+            # are we in a blockquote?
+            inquote = quotepos and npara >= quotepos and npara < quotepos + quotelen
+
+            if self.wrapcol:
+                tw = self.quote_tw if inquote else self.bullet_tw2
+                ret = ret + tw.fill(para)
+            else:
+                indent = self.QUOTE_INDENT if inquote else self.BULLET_INDENT2
+                ret = ret + indent + para
+
+            npara += 1
+
+        return ret
+
+    def format_annot(self, annot, extra=None):
+        # capture item text and contents (i.e. the comment), and split each into paragraphs
+        rawtext = annot.gettext()
+        text = [l for l in rawtext.strip().splitlines() if l] if rawtext else []
+        comment = [l for l in annot.contents.splitlines() if l] if annot.contents else []
+
         # we are either printing: item text and item contents, or one of the two
         # if we see an annotation with neither, something has gone wrong
-        parts = [s for s in [fmttext(annot), annot.contents] if s]
-        assert parts != []
+        assert text or comment
 
-        # break each part into paragraphs
-        lines = [[l for l in p.splitlines() if l] for p in parts]
-        assert len(lines) in {1,2}
+        # compute the formatted position (and extra bit if needed) as a label
+        label = self.format_pos(annot) + (" " + extra if extra else "") + ":"
 
-        if len(lines) > 1:
-            # If we have a short text section and a short comment, join them
-            # into one paragraph. Otherwise, we'll use multiple output paragraphs.
-            if len(lines[0]) == 1 and len(lines[1]) == 1:
-                msglines = [lines[0][0] + " -- " + lines[1][0]]
+        # If we have short (single-paragraph, few words) text with a short
+        # comment, and the text contains no embedded full stops or quotes, then
+        # we'll just put quotation marks around the text and merge the two into
+        # a single paragraph. Otherwise, we'll use a blockquote for the text and
+        # a separate paragraph for the comment.
+        if (comment and text and len(text) == 1 and len(comment) == 1
+            and len(text[0].split()) <= 10 # words
+            and all([x not in text[0] for x in ['"', '. ']])):
+            msg = label + ' "' + text[0] + '" -- ' + comment[0]
+            return self.format_bullet([msg]) + "\n"
+
+        # If there is no text and a single-paragraph comment, it also goes on
+        # one line.
+        elif comment and not text and len(comment) == 1:
+            msg = label + " " + comment[0]
+            return self.format_bullet([msg]) + "\n"
+
+        # Otherwise, text (if any) turns into a blockquote, and the comment (if
+        # any) into subsequent paragraphs.
+        else:
+            msgparas = [label] + text + comment
+            quotepos = 1 if text else None
+            quotelen = len(text) if text else None
+            return self.format_bullet(msgparas, quotepos, quotelen) + "\n"
+
+    def printall(self, annots, outfile):
+        for a in annots:
+            print(self.format_annot(a, a.tagname), file=outfile)
+
+    def printall_grouped(self, sections, annots, outfile):
+        """
+        sections controls the order of sections output
+                e.g.: ["highlights", "comments", "nits"]
+        """
+        self._printheader_called = False
+
+        def printheader(name):
+            # emit blank separator line if needed
+            if self._printheader_called:
+                print("", file=outfile)
             else:
-                msglines = lines[0] + ["-- " + lines[1][0]] + lines[1][1:]
-        else:
-            msglines = lines[0]
+                self._printheader_called = True
+            print("## " + name + "\n", file=outfile)
 
-        # prepend the formatted position (and extra bit if needed)
-        label = fmtpos(annot) + (" " + extra if extra else "")
-        msglines[0] = label + ": " + msglines[0]
-
-        # emit Markdown bullet, wrapped as desired
-        if wrapcol:
-            msg = tw1.fill(msglines[0]) + ('\n\n' if msglines[1:] else '') + '\n\n'.join(tw2.fill(m) for m in msglines[1:])
-        else:
-            msg = " * " + msglines[0] + ('\n' if msglines[1:] else '') + '\n'.join('   ' + m for m in msglines[1:])
-
-        # print it!
-        print(msg + "\n", file=outfile)
-
-    def printheader(name):
-        # emit blank separator line if needed
-        if printheader.called:
-            print("", file=outfile)
-        else:
-            printheader.called = True
-        print("## " + name + "\n", file=outfile)
-    printheader.called = False
-
-    if do_group:
         highlights = [a for a in annots if a.tagname == 'Highlight' and a.contents is None]
         comments = [a for a in annots if a.tagname not in ANNOT_NITS and a.contents]
         nits = [a for a in annots if a.tagname in ANNOT_NITS]
@@ -338,21 +401,18 @@ def prettyprint(annots, outlines, outfile, do_group, sections, wrapcol):
             if highlights and secname == 'highlights':
                 printheader("Highlights")
                 for a in highlights:
-                    printannot(a)
+                    print(self.format_annot(a), file=outfile)
 
             if comments and secname == 'comments':
                 printheader("Detailed comments")
                 for a in comments:
-                    printannot(a)
+                    print(self.format_annot(a), file=outfile)
 
             if nits and secname == 'nits':
                 printheader("Nits")
                 for a in nits:
-                    printannot(a)
+                    print(self.format_annot(a), file=outfile)
 
-    else:
-        for a in annots:
-            printannot(a, a.tagname)
 
 def resolve_dest(doc, dest):
     if isinstance(dest, bytes):
@@ -388,6 +448,7 @@ def get_outlines(doc, pagesdict):
             pos = Pos(page, targetx, targety)
             result.append(Outline(title, destname, pos))
     return result
+
 
 def process_file(fh, codec, emit_progress):
     rsrcmgr = PDFResourceManager()
@@ -438,6 +499,7 @@ def process_file(fh, codec, emit_progress):
 
     return (allannots, outlines)
 
+
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
 
@@ -464,11 +526,20 @@ def parse_args():
 
     return p.parse_args()
 
+
 def main():
     args = parse_args()
+
     (annots, outlines) = process_file(args.input, args.codec, args.progress)
-    prettyprint(annots, outlines, args.output, args.group, args.sections, args.wrap)
+
+    pp = PrettyPrinter(outlines, args.wrap)
+    if args.group:
+        pp.printall_grouped(args.sections, annots, args.output)
+    else:
+        pp.printall(annots, args.output)
+
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())
