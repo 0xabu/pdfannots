@@ -429,7 +429,7 @@ class Outline:
         self.dest = dest
         self.pos = pos
 
-def get_outlines(doc, pagesdict):
+def get_outlines(doc, pageslist, pagesdict):
     result = []
     for (_, title, destname, actionref, _) in doc.get_outlines():
         if destname is None and actionref:
@@ -441,12 +441,22 @@ def get_outlines(doc, pagesdict):
         if destname is None:
             continue
         dest = resolve_dest(doc, destname)
+
         # consider targets of the form [page /XYZ left top zoom]
         if dest[1] is PSLiteralTable.intern('XYZ'):
             (pageref, _, targetx, targety) = dest[:4]
-            page = pagesdict[pageref.objid]
-            pos = Pos(page, targetx, targety)
-            result.append(Outline(title, destname, pos))
+
+            if type(pageref) is int:
+                page = pageslist[pageref]
+            elif isinstance(pageref, pdftypes.PDFObjRef):
+                page = pagesdict[pageref.objid]
+            else:
+                sys.stderr.write('Warning: unsupported pageref in outline: %s\n' % pageref)
+                page = None
+
+            if page:
+                pos = Pos(page, targetx, targety)
+                result.append(Outline(title, destname, pos))
     return result
 
 
@@ -458,11 +468,13 @@ def process_file(fh, codec, emit_progress):
     parser = PDFParser(fh)
     doc = PDFDocument(parser)
 
+    pageslist = [] # pages in page order
     pagesdict = {} # map from PDF page object ID to Page object
     allannots = []
 
     for (pageno, pdfpage) in enumerate(PDFPage.create_pages(doc)):
         page = Page(pageno, pdfpage.mediabox)
+        pageslist.append(page)
         pagesdict[pdfpage.pageid] = page
         if pdfpage.annots:
             # emit progress indicator
@@ -488,7 +500,7 @@ def process_file(fh, codec, emit_progress):
 
     outlines = []
     try:
-        outlines = get_outlines(doc, pagesdict)
+        outlines = get_outlines(doc, pageslist, pagesdict)
     except PDFNoOutlines:
         if emit_progress:
             sys.stderr.write("Document doesn't include outlines (\"bookmarks\")\n")
