@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Extracts annotations from a PDF file in a text format for use in reviewing.
+Extracts annotations from a PDF file in markdown format for use in reviewing.
 """
 
 import sys, io, textwrap, argparse, codecs
@@ -29,6 +29,8 @@ SUBSTITUTIONS = {
 
 ANNOT_SUBTYPES = frozenset({'Text', 'Highlight', 'Squiggly', 'StrikeOut', 'Underline'})
 ANNOT_NITS = frozenset({'Squiggly', 'StrikeOut', 'Underline'})
+
+COLUMNS_PER_PAGE = 2 # default only, changed via a command-line parameter
 
 DEBUG_BOXHIT = False
 
@@ -205,11 +207,11 @@ class Pos:
             return True
         elif self.page == other.page:
             assert self.page is other.page
-            # XXX: assume two-column left-to-right top-to-bottom documents
+            # XXX: assume left-to-right top-to-bottom documents
             (sx, sy) = self.normalise_to_mediabox()
             (ox, oy) = other.normalise_to_mediabox()
             (x0, y0, x1, y1) = self.page.mediabox
-            colwidth = (x1 - x0) / 2
+            colwidth = (x1 - x0) / COLUMNS_PER_PAGE
             self_col = (sx - x0) // colwidth
             other_col = (ox - x0) // colwidth
             return self_col < other_col or (self_col == other_col and sy > oy)
@@ -536,6 +538,8 @@ def parse_args():
                    help="text encoding for annotations (default: utf8)")
     g.add_argument("-o", metavar="OUTFILE", type=argparse.FileType("w"), dest="output",
                    default=sys.stdout, help="output file (default is stdout)")
+    g.add_argument("-n", "--cols", default=2, type=int, metavar="COLS", dest="cols",
+                   help="number of columns per page in the document (default: 2)")
 
     g = p.add_argument_group('Options controlling output format')
     allsects = ["highlights", "comments", "nits"]
@@ -545,13 +549,16 @@ def parse_args():
     g.add_argument("--no-group", dest="group", default=True, action="store_false",
                    help="emit annotations in order, don't group into sections")
     g.add_argument("-w", "--wrap", metavar="COLS", type=int,
-                   help="wrap text at this many columns")
+                   help="wrap text at this many output columns")
 
     return p.parse_args()
 
 
 def main():
     args = parse_args()
+
+    global COLUMNS_PER_PAGE
+    COLUMNS_PER_PAGE = args.cols
 
     (annots, outlines) = process_file(args.input, args.codec, args.progress)
 

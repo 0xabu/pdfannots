@@ -47,7 +47,7 @@ See `pdfannots.py --help` for options and invocation.
 
 At present the script has a number of limitations:
 
- * It assumes 2-column layout when assigning annotations to section titles
+ * It assumes left-to-right top-to-bottom page layout
 
  * pdfminer (the underlying PDF parser) sometimes fails to extract text from PDF
    files when other converters (e.g. pdftotext) do just fine; this results in
