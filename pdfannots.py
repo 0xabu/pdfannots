@@ -349,15 +349,16 @@ class PrettyPrinter:
         # compute the formatted position (and extra bit if needed) as a label
         label = self.format_pos(annot) + (" " + extra if extra else "") + ":"
 
-        # If we have short (single-paragraph, few words) text with a short
+        # If we have short (single-paragraph, few words) text with a short or no
         # comment, and the text contains no embedded full stops or quotes, then
         # we'll just put quotation marks around the text and merge the two into
-        # a single paragraph. Otherwise, we'll use a blockquote for the text and
-        # a separate paragraph for the comment.
-        if (comment and text and len(text) == 1 and len(comment) == 1
-            and len(text[0].split()) <= 10 # words
-            and all([x not in text[0] for x in ['"', '. ']])):
-            msg = label + ' "' + text[0] + '" -- ' + comment[0]
+        # a single paragraph.
+        if (text and len(text) == 1 and len(text[0].split()) <= 10 # words
+            and all([x not in text[0] for x in ['"', '. ']])
+            and (not comment or len(comment) == 1)):
+            msg = label + ' "' + text[0] + '"'
+            if comment:
+                msg = msg + ' -- ' + comment[0]
             return self.format_bullet([msg]) + "\n"
 
         # If there is no text and a single-paragraph comment, it also goes on
