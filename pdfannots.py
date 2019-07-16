@@ -239,6 +239,15 @@ def getannots(pdfannots, page, codec):
 
         contents = pa.get('Contents')
         if contents is not None:
+            # XXX: kludge for Drawboard PDF, which tends to replace a typed
+            # "..." in comments as a "smart" character with byte value 0x83,
+            # which is invalid UTF8, and even in Windows 1252 is "Latin small
+            # letter f with hook", so I'm not sure how to fix this correctly.
+            if b'\x83' in contents:
+                ellipsis, _ = codec.encode("...")
+                contents = contents.replace(b'\x83', ellipsis)
+
+            # decode to string, and normalise line endings to \n
             contents, _ = codec.decode(contents)
             contents = contents.replace('\r\n', '\n').replace('\r', '\n')
 
@@ -522,8 +531,8 @@ def parse_args():
     g = p.add_argument_group('Basic options')
     g.add_argument("-p", "--progress", default=False, action="store_true",
                    help="emit progress information")
-    g.add_argument("-c", "--codec", default="cp1252", type=codecs.lookup,
-                   help="text encoding for annotations (default: windows-1252)")
+    g.add_argument("-c", "--codec", default="utf8", type=codecs.lookup,
+                   help="text encoding for annotations (default: utf8)")
     g.add_argument("-o", metavar="OUTFILE", type=argparse.FileType("w"), dest="output",
                    default=sys.stdout, help="output file (default is stdout)")
 
