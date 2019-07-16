@@ -326,13 +326,14 @@ class PrettyPrinter:
             ret = self.BULLET_INDENT1 + paras[0]
 
         # emit subsequent paragraphs
-        sep = '\n\n' if self.wrapcol else '\n'
         npara = 1
         for para in paras[1:]:
-            ret = ret + sep
-
             # are we in a blockquote?
             inquote = quotepos and npara >= quotepos and npara < quotepos + quotelen
+
+            # emit a paragraph break
+            # if we're going straight to a quote, we don't need an extra newline
+            ret = ret + ('\n' if npara == quotepos else '\n\n')
 
             if self.wrapcol:
                 tw = self.quote_tw if inquote else self.bullet_tw2
