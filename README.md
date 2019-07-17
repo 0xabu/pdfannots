@@ -47,14 +47,18 @@ See `pdfannots.py --help` for options and invocation.
 
 At present the script has a number of limitations:
 
- * It assumes left-to-right top-to-bottom page layout
-
  * pdfminer (the underlying PDF parser) sometimes fails to extract text from PDF
    files when other converters (e.g. pdftotext) do just fine; this results in
    annotations with some or all text missing (in which case you'll see `XXX:
    missing text`)
 
  * The output from strikeout annotations is not very meaningful
+
+ * When extracting text, we remove all hyphens that immediately precede a line
+   break and join the adjacent words. This usually produces the best results
+   for Latex output (e.g. "soft-\nware" becomes "software"), but sometimes
+   the hyphen needs to stay (e.g. "memory-\nmapped", which will be
+   extracted as "memorymapped"), and we can't tell the difference.
 
 
 # Dependencies

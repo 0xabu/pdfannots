@@ -419,7 +419,11 @@ class PrettyPrinter:
             if nits and secname == 'nits':
                 printheader("Nits")
                 for a in nits:
-                    print(self.format_annot(a), file=outfile)
+                    if a.tagname == 'StrikeOut':
+                        extra = "delete"
+                    else:
+                        extra = None
+                    print(self.format_annot(a, extra), file=outfile)
 
 
 def resolve_dest(doc, dest):
