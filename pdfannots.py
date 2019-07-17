@@ -5,7 +5,7 @@
 Extracts annotations from a PDF file in markdown format for use in reviewing.
 """
 
-import sys, io, textwrap, argparse, codecs
+import sys, io, textwrap, argparse
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
 from pdfminer.layout import LAParams, LTContainer, LTAnno, LTChar, LTTextBox
@@ -15,6 +15,7 @@ from pdfminer.pdfdocument import PDFDocument, PDFNoOutlines
 from pdfminer.psparser import PSLiteralTable, PSLiteral
 import pdfminer.pdftypes as pdftypes
 import pdfminer.settings
+import pdfminer.utils
 
 pdfminer.settings.STRICT = False
 
@@ -25,6 +26,7 @@ SUBSTITUTIONS = {
     u'’': "'",
     u'“': '"',
     u'”': '"',
+    u'…': '...',
 }
 
 ANNOT_SUBTYPES = frozenset({'Text', 'Highlight', 'Squiggly', 'StrikeOut', 'Underline'})
@@ -232,7 +234,7 @@ class Pos:
         return (x, y)
 
 
-def getannots(pdfannots, page, codec):
+def getannots(pdfannots, page):
     annots = []
     for pa in pdfannots:
         subtype = pa.get('Subtype')
@@ -241,17 +243,10 @@ def getannots(pdfannots, page, codec):
 
         contents = pa.get('Contents')
         if contents is not None:
-            # XXX: kludge for Drawboard PDF, which tends to replace a typed
-            # "..." in comments as a "smart" character with byte value 0x83,
-            # which is invalid UTF8, and even in Windows 1252 is "Latin small
-            # letter f with hook", so I'm not sure how to fix this correctly.
-            if b'\x83' in contents:
-                ellipsis, _ = codec.encode("...")
-                contents = contents.replace(b'\x83', ellipsis)
-
-            # decode to string, and normalise line endings to \n
-            contents, _ = codec.decode(contents)
+            # decode as string, normalise line endings, replace special characters
+            contents = pdfminer.utils.decode_text(contents)
             contents = contents.replace('\r\n', '\n').replace('\r', '\n')
+            contents = ''.join([SUBSTITUTIONS.get(c, c) for c in contents])
 
         coords = pdftypes.resolve1(pa.get('QuadPoints'))
         rect = pdftypes.resolve1(pa.get('Rect'))
@@ -473,7 +468,7 @@ def get_outlines(doc, pageslist, pagesdict):
     return result
 
 
-def process_file(fh, codec, emit_progress):
+def process_file(fh, emit_progress):
     rsrcmgr = PDFResourceManager()
     laparams = LAParams()
     device = RectExtractor(rsrcmgr, laparams=laparams)
@@ -502,7 +497,7 @@ def process_file(fh, codec, emit_progress):
                 else:
                     sys.stderr.write('Warning: unknown annotation: %s\n' % a)
 
-            page.annots = getannots(pdfannots, page, codec)
+            page.annots = getannots(pdfannots, page)
             page.annots.sort()
             device.setannots(page.annots)
             interpreter.process_page(pdfpage)
@@ -534,8 +529,6 @@ def parse_args():
     g = p.add_argument_group('Basic options')
     g.add_argument("-p", "--progress", default=False, action="store_true",
                    help="emit progress information")
-    g.add_argument("-c", "--codec", default="utf8", type=codecs.lookup,
-                   help="text encoding for annotations (default: utf8)")
     g.add_argument("-o", metavar="OUTFILE", type=argparse.FileType("w"), dest="output",
                    default=sys.stdout, help="output file (default is stdout)")
     g.add_argument("-n", "--cols", default=2, type=int, metavar="COLS", dest="cols",
@@ -560,7 +553,7 @@ def main():
     global COLUMNS_PER_PAGE
     COLUMNS_PER_PAGE = args.cols
 
-    (annots, outlines) = process_file(args.input, args.codec, args.progress)
+    (annots, outlines) = process_file(args.input, args.progress)
 
     pp = PrettyPrinter(outlines, args.wrap)
     if args.group:
