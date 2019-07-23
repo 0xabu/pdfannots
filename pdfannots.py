@@ -136,9 +136,10 @@ class Page:
 
 
 class Annotation:
-    def __init__(self, page, tagname, coords=None, rect=None, contents=None):
+    def __init__(self, page, tagname, coords=None, rect=None, contents=None, color=[0,0,0]):
         self.page = page
         self.tagname = tagname
+        self.color = color
         if contents == '':
             self.contents = None
         else:
@@ -241,6 +242,7 @@ def getannots(pdfannots, page):
     annots = []
     for pa in pdfannots:
         subtype = pa.get('Subtype')
+        color = pa.get('C')
         if subtype is not None and subtype.name not in ANNOT_SUBTYPES:
             continue
 
@@ -253,7 +255,7 @@ def getannots(pdfannots, page):
 
         coords = pdftypes.resolve1(pa.get('QuadPoints'))
         rect = pdftypes.resolve1(pa.get('Rect'))
-        a = Annotation(page, subtype.name, coords, rect, contents)
+        a = Annotation(page, subtype.name, coords, rect, contents, color)
         annots.append(a)
 
     return annots
