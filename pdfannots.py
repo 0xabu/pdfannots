@@ -136,7 +136,7 @@ class Page:
 
 
 class Annotation:
-    def __init__(self, page, tagname, coords=None, rect=None, contents=None):
+    def __init__(self, page, tagname, coords=None, rect=None, contents=None, author=None):
         self.page = page
         self.tagname = tagname
         if contents == '':
@@ -144,6 +144,7 @@ class Annotation:
         else:
             self.contents = contents
         self.rect = rect
+        self.author = author
         self.text = ''
 
         if coords is None:
@@ -253,7 +254,10 @@ def getannots(pdfannots, page):
 
         coords = pdftypes.resolve1(pa.get('QuadPoints'))
         rect = pdftypes.resolve1(pa.get('Rect'))
-        a = Annotation(page, subtype.name, coords, rect, contents)
+        author = pdftypes.resolve1(pa.get('T'))
+        if author is not None:
+            author = pdfminer.utils.decode_text(author)
+        a = Annotation(page, subtype.name, coords, rect, contents, author=author)
         annots.append(a)
 
     return annots
