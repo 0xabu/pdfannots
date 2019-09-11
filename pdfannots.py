@@ -552,6 +552,8 @@ def parse_args():
                    help=("sections to emit (default: %s)" % ', '.join(allsects)))
     g.add_argument("--no-group", dest="group", default=True, action="store_false",
                    help="emit annotations in order, don't group into sections")
+    g.add_argument("--print-filename", dest="printfilename", default=False, action="store_true",
+                   help="print the filename when it has annotations")
     g.add_argument("-w", "--wrap", metavar="COLS", type=int,
                    help="wrap text at this many output columns")
 
@@ -567,6 +569,10 @@ def main():
     (annots, outlines) = process_file(args.input, args.progress)
 
     pp = PrettyPrinter(outlines, args.wrap)
+
+    if args.printfilename and annots:
+        print("# File: '%s'\n" % args.input.name)
+
     if args.group:
         pp.printall_grouped(args.sections, annots, args.output)
     else:
