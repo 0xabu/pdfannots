@@ -535,7 +535,7 @@ def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
 
     p.add_argument("input", metavar="INFILE", type=argparse.FileType("rb"),
-                   help="PDF file to process", nargs='+')
+                   help="PDF files to process", nargs='+')
 
     g = p.add_argument_group('Basic options')
     g.add_argument("-p", "--progress", default=False, action="store_true",
