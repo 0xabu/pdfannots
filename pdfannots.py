@@ -535,7 +535,7 @@ def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
 
     p.add_argument("input", metavar="INFILE", type=argparse.FileType("rb"),
-                   help="PDF file to process")
+                   help="PDF files to process", nargs='+')
 
     g = p.add_argument_group('Basic options')
     g.add_argument("-p", "--progress", default=False, action="store_true",
@@ -566,17 +566,18 @@ def main():
     global COLUMNS_PER_PAGE
     COLUMNS_PER_PAGE = args.cols
 
-    (annots, outlines) = process_file(args.input, args.progress)
+    for file in args.input:
+        (annots, outlines) = process_file(file, args.progress)
 
-    pp = PrettyPrinter(outlines, args.wrap)
+        pp = PrettyPrinter(outlines, args.wrap)
 
-    if args.printfilename and annots:
-        print("# File: '%s'\n" % args.input.name)
+        if args.printfilename and annots:
+            print("# File: '%s'\n" % file.name)
 
-    if args.group:
-        pp.printall_grouped(args.sections, annots, args.output)
-    else:
-        pp.printall(annots, args.output)
+        if args.group:
+            pp.printall_grouped(args.sections, annots, args.output)
+        else:
+            pp.printall(annots, args.output)
 
     return 0
 
