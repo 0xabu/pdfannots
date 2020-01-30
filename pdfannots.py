@@ -267,13 +267,15 @@ class PrettyPrinter:
     """
     Pretty-print the extracted annotations according to the output options.
     """
-    def __init__(self, outlines, wrapcol):
+    def __init__(self, outlines, wrapcol, brief_output):
         """
         outlines List of outlines
         wrapcol  If not None, specifies the column at which output is word-wrapped
         """
         self.outlines = outlines
         self.wrapcol = wrapcol
+        self.brief_words = brief_output[0]
+        self.brief_paras = brief_output[1]
 
         self.BULLET_INDENT1 = " * "
         self.BULLET_INDENT2 = "   "
@@ -367,9 +369,8 @@ class PrettyPrinter:
         # comment, and the text contains no embedded full stops or quotes, then
         # we'll just put quotation marks around the text and merge the two into
         # a single paragraph.
-        if (text and len(text) == 1 and len(text[0].split()) <= 10 # words
-            and all([x not in text[0] for x in ['"', '. ']])
-            and (not comment or len(comment) == 1)):
+        if (text and len(text) == 1 and len(text[0].split()) <= self.brief_words
+            and (not comment or len(comment) <= self.brief_paras)):
             msg = label + ' "' + text[0] + '"'
             if comment:
                 msg = msg + ' -- ' + comment[0]
@@ -377,8 +378,8 @@ class PrettyPrinter:
 
         # If there is no text and a single-paragraph comment, it also goes on
         # one line.
-        elif comment and not text and len(comment) == 1:
-            msg = label + " " + comment[0]
+        elif comment and not text and len(comment) <= self.brief_paras:
+            msg = label + " " + " ".join(c for c in comment)
             return self.format_bullet([msg]) + "\n"
 
         # Otherwise, text (if any) turns into a blockquote, and the comment (if
@@ -556,6 +557,12 @@ def parse_args():
                    help="print the filename when it has annotations")
     g.add_argument("-w", "--wrap", metavar="COLS", type=int,
                    help="wrap text at this many output columns")
+    g.add_argument("--brief-output", metavar=("WORDS", "PARAGRAPHS"),
+                   nargs=2, default=(10, 1), type=int,
+                   help="""abbreviate output for highlights
+                   with less than this many words and notes with less than this
+                   many paragraphs, setting both to 0 gives long form output
+                   for all annotations (default: 10 1)""")
 
     return p.parse_args()
 
@@ -569,7 +576,7 @@ def main():
     for file in args.input:
         (annots, outlines) = process_file(file, args.progress)
 
-        pp = PrettyPrinter(outlines, args.wrap)
+        pp = PrettyPrinter(outlines, args.wrap, args.brief_output)
 
         if args.printfilename and annots:
             print("# File: '%s'\n" % file.name)
