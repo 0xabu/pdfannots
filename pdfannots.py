@@ -391,6 +391,8 @@ class PrettyPrinter:
             return self.format_bullet(msgparas, quotepos, quotelen) + "\n"
 
     def printall(self, annots, outfile):
+        # Remove empty popup notes
+        annots = [a for a in annots if not (a.tagname == 'Text' and a.contents is None)]
         for a in annots:
             print(self.format_annot(a, a.tagname), file=outfile)
 
