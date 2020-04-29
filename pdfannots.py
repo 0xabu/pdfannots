@@ -6,6 +6,8 @@ Extracts annotations from a PDF file in markdown format for use in reviewing.
 """
 
 import sys, io, textwrap, argparse
+
+from numpy.f2py.cfuncs import outneeds
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
 from pdfminer.layout import LAParams, LTContainer, LTAnno, LTChar, LTTextBox
@@ -16,7 +18,6 @@ from pdfminer.psparser import PSLiteralTable, PSLiteral
 import pdfminer.pdftypes as pdftypes
 import pdfminer.settings
 import pdfminer.utils
-
 pdfminer.settings.STRICT = False
 
 SUBSTITUTIONS = {
@@ -306,13 +307,16 @@ class PrettyPrinter:
                 break
         return prev
 
-    def format_pos(self, annot):
+    def format_pos(self, annot,compact=False):
         apos = annot.getstartpos()
         o = self.nearest_outline(apos) if apos else None
+
+        preHeader="Page"
+        if compact:preHeader="pg"
         if o:
-            return "Page %d (%s)" % (annot.page.pageno + 1, o.title)
+            return preHeader+" %d (%s)" % (annot.page.pageno + 1, o.title)
         else:
-            return "Page %d" % (annot.page.pageno + 1)
+            return  preHeader+"%d" % (annot.page.pageno + 1)
 
     # format a Markdown bullet, wrapped as desired
     def format_bullet(self, paras, quotepos=None, quotelen=None):
@@ -350,7 +354,7 @@ class PrettyPrinter:
 
         return ret
 
-    def format_annot(self, annot, extra=None):
+    def format_annot(self, annot, extra=None,addLabel=True):
         # capture item text and contents (i.e. the comment), and split each into paragraphs
         rawtext = annot.gettext()
         text = [l for l in rawtext.strip().splitlines() if l] if rawtext else []
@@ -362,6 +366,10 @@ class PrettyPrinter:
 
         # compute the formatted position (and extra bit if needed) as a label
         label = self.format_pos(annot) + (" " + extra if extra else "") + ":"
+
+        ###ADD
+        if addLabel==False: label=""    #disable label if requested
+
 
         # If we have short (single-paragraph, few words) text with a short or no
         # comment, and the text contains no embedded full stops or quotes, then
@@ -530,6 +538,57 @@ def process_file(fh, emit_progress):
 
     return (allannots, outlines)
 
+####    Andysnake96 Add -> json Export
+isHighLight=lambda annot:   annot.tagname == 'Highlight' and annot.contents is None
+isComment = lambda annot:   annot.tagname not in ANNOT_NITS and annot.contents
+isNits =    lambda annot:   annot.tagname in ANNOT_NITS
+isHighLightUnderlined=lambda annot:  isHighLight(annot) and isNits(annot)
+#HIGHLIGHTS_KINDS
+SURROUNDING= "SURROUNDING"
+HIGHLIGHTED_UNDERLINED= "HIGHLIGHTEDUNDERLINED"
+HIGHLIGHTED= "HIGHLIGHTED"
+UNDERLINED= "UNDERLINED"
+COMMENT="COMMENT"
+GrouppingFuncsDict={HIGHLIGHTED:isHighLight, UNDERLINED:isNits, COMMENT:isComment, HIGHLIGHTED_UNDERLINED:isHighLightUnderlined}
+def groupAnnotationsDict(annots,groupBy=GrouppingFuncsDict,prettyPrinter=None ):
+    """group annots text differently in base groupBy parameter,
+    if groupBy is None annots will be groupped by their tagname (highlight options in pdf)
+    otherwise groupping functions passed as Dict groupName-> discriminate func will be used to group annots
+    returned dictonary groupName -> [(annotPageStr,annotText),...]
+    """
+    outAnnotGroups=dict()
+    for note in annots:
+        oldFoundedGroup=""
+        destGroup=note.tagname
+        if groupBy!=None:       #overwrite default groupping method with the one passed by groupBy arg
+            for group,discriminateFunc in groupBy.items():
+                if discriminateFunc(note):              #note compatible with group
+                    if len(group)>len(oldFoundedGroup):     #promote longer named group possible for the current note->trick to force HIGHLIGH_UNDERLINED
+                        destGroup=group
+                        oldFoundedGroup=group
+
+        if outAnnotGroups.get(destGroup)==None: outAnnotGroups[destGroup]=list()
+        if prettyPrinter!=None: pageStr=prettyPrinter.format_pos(note)
+        pgNum=note.page.pageno
+        note=note.text
+        outAnnotGroups[destGroup].append((pgNum,note))                 #append note in target group
+    return outAnnotGroups
+def ExtractPdfAnnotsDict(pdfPath,outDumpJsonFname=""):
+    """ extract annotations inside given pdfpath into a dictionary 
+        just wrap groupAnnotationsDict with the processing / extraction of pdf highlights with a basic configuration
+        if outDumpJsonFname given, hilights will be exported in a json file
+    """
+    file=open(pdfPath,"rb")
+    (annots, outlines) = process_file(file, False)
+    file.close()
+    groupDict=groupAnnotationsDict(annots)
+    if outDumpJsonFname!="":
+        from json import dump
+        dumpF=open(outDumpJsonFname,"w")
+        dump(groupDict,dumpF)
+        dumpF.close()
+    return groupDict
+###################################################
 
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
@@ -556,6 +615,8 @@ def parse_args():
                    help="print the filename when it has annotations")
     g.add_argument("-w", "--wrap", metavar="COLS", type=int,
                    help="wrap text at this many output columns")
+    g.add_argument("-exportJsonFile",type=str,default="")
+
 
     return p.parse_args()
 
@@ -565,7 +626,11 @@ def main():
 
     global COLUMNS_PER_PAGE
     COLUMNS_PER_PAGE = args.cols
-
+    # args.input=["../DATA/repo/knowledge/AMOD_optimization/JLee.3.0.pdf"]
+    if args.exportJsonFile!="": 
+        for file in args.input:
+            ExtractPdfAnnotsDict(file.name,file.name+args.exportJsonFile)
+        return
     for file in args.input:
         (annots, outlines) = process_file(file, args.progress)
 
@@ -581,6 +646,6 @@ def main():
 
     return 0
 
-
-if __name__ == "__main__":
+if __name__=="__main__":
     sys.exit(main())
+
