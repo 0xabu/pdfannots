@@ -5,7 +5,7 @@ import pdfannots
 
 class ExtractionTestBase(unittest.TestCase):
     def setUp(self):
-        path = pathlib.Path(__file__).parent / self.filename
+        path = pathlib.Path(__file__).parent / 'tests' / self.filename
         with path.open('rb') as f:
             (annots, outlines) = pdfannots.process_file(f)
             self.annots = annots
