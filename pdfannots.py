@@ -479,7 +479,7 @@ def get_outlines(doc, pageslist, pagesdict):
     return result
 
 
-def process_file(fh, emit_progress):
+def process_file(fh, emit_progress=False):
     rsrcmgr = PDFResourceManager()
     laparams = LAParams()
     device = RectExtractor(rsrcmgr, laparams=laparams)
@@ -531,7 +531,7 @@ def process_file(fh, emit_progress):
     return (allannots, outlines)
 
 
-def parse_args():
+def parse_args(argv):
     p = argparse.ArgumentParser(description=__doc__)
 
     p.add_argument("input", metavar="INFILE", type=argparse.FileType("rb"),
@@ -557,11 +557,11 @@ def parse_args():
     g.add_argument("-w", "--wrap", metavar="COLS", type=int,
                    help="wrap text at this many output columns")
 
-    return p.parse_args()
+    return p.parse_args(argv)
 
 
-def main():
-    args = parse_args()
+def main(argv):
+    args = parse_args(argv)
 
     global COLUMNS_PER_PAGE
     COLUMNS_PER_PAGE = args.cols
@@ -579,8 +579,6 @@ def main():
         else:
             pp.printall(annots, args.output)
 
-    return 0
-
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main(sys.argv)
