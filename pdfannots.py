@@ -267,13 +267,15 @@ class PrettyPrinter:
     """
     Pretty-print the extracted annotations according to the output options.
     """
-    def __init__(self, outlines, wrapcol):
+    def __init__(self, outlines, wrapcol=None, condense=True):
         """
         outlines List of outlines
-        wrapcol  If not None, specifies the column at which output is word-wrapped
+        wrapcol  Specifies the column at which output is word-wrapped
+        condense Permit use of the condensed format
         """
         self.outlines = outlines
         self.wrapcol = wrapcol
+        self.condense = condense
 
         self.BULLET_INDENT1 = " * "
         self.BULLET_INDENT2 = "   "
@@ -367,7 +369,9 @@ class PrettyPrinter:
         # comment, and the text contains no embedded full stops or quotes, then
         # we'll just put quotation marks around the text and merge the two into
         # a single paragraph.
-        if (text and len(text) == 1 and len(text[0].split()) <= 10 # words
+        if (self.condense
+            and len(text) == 1
+            and len(text[0].split()) <= 10 # words
             and all([x not in text[0] for x in ['"', '. ']])
             and (not comment or len(comment) == 1)):
             msg = label + ' "' + text[0] + '"'
@@ -550,6 +554,8 @@ def parse_args(argv):
     g.add_argument("-s", "--sections", metavar="SEC", nargs="*",
                    choices=allsects, default=allsects,
                    help=("sections to emit (default: %s)" % ', '.join(allsects)))
+    g.add_argument("--no-condense", dest="condense", default=True, action="store_false",
+                   help="do not use condensed format, emit annotations as a blockquote regardless of length")
     g.add_argument("--no-group", dest="group", default=True, action="store_false",
                    help="emit annotations in order, don't group into sections")
     g.add_argument("--print-filename", dest="printfilename", default=False, action="store_true",
@@ -569,7 +575,7 @@ def main(argv):
     for file in args.input:
         (annots, outlines) = process_file(file, args.progress)
 
-        pp = PrettyPrinter(outlines, args.wrap)
+        pp = PrettyPrinter(outlines, args.wrap, args.condense)
 
         if args.printfilename and annots:
             print("# File: '%s'\n" % file.name)
