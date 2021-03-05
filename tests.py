@@ -4,7 +4,11 @@ import unittest, pathlib
 import pdfannots
 
 class ExtractionTestBase(unittest.TestCase):
+    columns_per_page = 1
+
     def setUp(self):
+        pdfannots.COLUMNS_PER_PAGE = self.columns_per_page
+
         path = pathlib.Path(__file__).parent / 'tests' / self.filename
         with path.open('rb') as f:
             (annots, outlines) = pdfannots.process_file(f)
@@ -13,6 +17,7 @@ class ExtractionTestBase(unittest.TestCase):
 
 class ExtractionTests(ExtractionTestBase):
     filename = 'hotos17.pdf'
+    columns_per_page = 2
 
     def test_annots(self):
         EXPECTED = [
@@ -30,14 +35,17 @@ class ExtractionTests(ExtractionTestBase):
             self.assertEqual((a.page.pageno, a.tagname, a.contents, a.gettext()), expected)
 
     def test_outlines(self):
-        self.assertEqual(
-            [o.title for o in self.outlines],
-            ['Introduction',
-             'Background: x86 extensions',
-             'Case study: SGX',
-             'Case study: CET',
-             'Implications',
-             'Concluding remarks'])
+        EXPECTED = [
+            'Introduction',
+            'Background: x86 extensions',
+            'Case study: SGX',
+            'Case study: CET',
+            'Implications',
+            'Concluding remarks']
+
+        self.assertEqual(len(self.outlines), len(EXPECTED))
+        for o, expected in zip(self.outlines, EXPECTED):
+            self.assertEqual(o.title, expected)
 
 class Issue9(ExtractionTestBase):
     filename = 'issue9.pdf'
@@ -54,6 +62,22 @@ class Issue13(ExtractionTestBase):
         self.assertEqual(len(self.annots), 1)
         a = self.annots[0]
         self.assertEqual(a.gettext(), 'This is a sample statement.')
+
+class Pr24(ExtractionTestBase):
+    filename = 'pr24.pdf'
+
+    def test(self):
+        EXPECTED = [
+            ('Highlight', 'long highlight', 'Link to heading that is working with vim-pandoc. Link to heading that Heading'), # BUG: Heading is captured out of order!
+            ('Highlight', 'short highlight', 'not working'),
+            ('Text', None, None),
+            ('Highlight', None, 'Some more text'),
+            ('Text', 's', None),
+            ('Text', 'dual\n\npara note', None)]
+
+        self.assertEqual(len(self.annots), len(EXPECTED))
+        for a, expected in zip(self.annots, EXPECTED):
+            self.assertEqual((a.tagname, a.contents, a.gettext()), expected)
 
 if __name__ == "__main__":
     unittest.main()
