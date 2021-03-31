@@ -5,7 +5,7 @@
 Extracts annotations from a PDF file in markdown format for use in reviewing.
 """
 
-import sys, io, textwrap, argparse
+import sys, io, textwrap, argparse, datetime
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
 from pdfminer.layout import LAParams, LTContainer, LTAnno, LTChar, LTTextBox
@@ -136,7 +136,7 @@ class Page:
 
 
 class Annotation:
-    def __init__(self, page, tagname, coords=None, rect=None, contents=None, author=None):
+    def __init__(self, page, tagname, coords=None, rect=None, contents=None, author=None, created=None):
         self.page = page
         self.tagname = tagname
         if contents == '':
@@ -145,6 +145,7 @@ class Annotation:
             self.contents = contents
         self.rect = rect
         self.author = author
+        self.created = created
         self.text = ''
 
         if coords is None:
@@ -238,6 +239,23 @@ class Pos:
         return (x, y)
 
 
+def _decode_datetime(dts):
+    if dts.startswith('D:'):  # seems 'optional but recommended'
+        dts = dts[2:]
+    dts = dts.replace("'", '')
+    zi = dts.find('Z')
+    if zi != -1:  # sometimes it's Z/Z0000
+        dts = dts[:zi] + '+0000'
+    fmt = '%Y%m%d%H%M%S'
+    # dates in PDFs are quite flaky and underspecified... so perhaps worth defensive code here
+    for suf in ['%z', '']:  # sometimes timezone is missing
+        try:
+            return datetime.datetime.strptime(dts, fmt + suf)
+        except ValueError:
+            continue
+    return None
+
+
 def getannots(pdfannots, page):
     annots = []
     for pa in pdfannots:
@@ -257,7 +275,17 @@ def getannots(pdfannots, page):
         author = pdftypes.resolve1(pa.get('T'))
         if author is not None:
             author = pdfminer.utils.decode_text(author)
-        a = Annotation(page, subtype.name, coords, rect, contents, author=author)
+        created = None
+        dobj = pa.get('CreationDate')
+        # some pdf apps set modification date, but not creation date
+        dobj = dobj or pa.get('ModDate')
+        # poppler-based apps (e.g. Okular) use 'M' for some reason
+        dobj = dobj or pa.get('M')
+        createds = pdftypes.resolve1(dobj)
+        if createds is not None:
+            createds = pdfminer.utils.decode_text(createds)
+            created = _decode_datetime(createds)
+        a = Annotation(page, subtype.name, coords, rect, contents, author=author, created=created)
         annots.append(a)
 
     return annots
