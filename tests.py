@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from datetime import datetime, timedelta, timezone
 import unittest, pathlib
 import pdfannots
 
@@ -33,6 +34,7 @@ class ExtractionTests(ExtractionTestBase):
         self.assertEqual(len(self.annots), len(EXPECTED))
         for a, expected in zip(self.annots, EXPECTED):
             self.assertEqual((a.page.pageno, a.tagname, a.contents, a.gettext()), expected)
+        self.assertEqual(self.annots[0].created, datetime(2019, 1 , 19, 21, 29, 42, tzinfo=timezone(-timedelta(hours=8))))
 
     def test_outlines(self):
         EXPECTED = [
@@ -46,6 +48,18 @@ class ExtractionTests(ExtractionTestBase):
         self.assertEqual(len(self.outlines), len(EXPECTED))
         for o, expected in zip(self.outlines, EXPECTED):
             self.assertEqual(o.title, expected)
+
+class UnitTests(unittest.TestCase):
+    def test_decode_datetime(self):
+        datas = [
+            ("D:123456"               , None),  # defensive on bad datetimes
+            ("D:20190119212926-08'00'", datetime(2019, 1 , 19, 21, 29, 26, tzinfo=timezone(-timedelta(hours=8)))),
+            ("20200102030405Z0000"    , datetime(2020, 1 , 2 , 3 , 4 , 5 , tzinfo=timezone.utc)),
+            ("D:20101112191817"       , datetime(2010, 11, 12, 19, 18, 17)),
+        ]
+        for dts, expected in datas:
+            dt = pdfannots._decode_datetime(dts)
+            self.assertEqual(dt, expected)
 
 class Issue9(ExtractionTestBase):
     filename = 'issue9.pdf'
