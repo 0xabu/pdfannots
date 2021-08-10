@@ -17,6 +17,8 @@ import pdfminer.pdftypes as pdftypes
 import pdfminer.settings
 import pdfminer.utils
 
+__version__ = '0.1'
+
 pdfminer.settings.STRICT = False
 
 SUBSTITUTIONS = {
@@ -563,8 +565,10 @@ def process_file(fh, emit_progress=False):
     return (allannots, outlines)
 
 
-def parse_args(argv):
+def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
+
+    p.add_argument('--version', action='version', version='%(prog)s ' + __version__)
 
     p.add_argument("input", metavar="INFILE", type=argparse.FileType("rb"),
                    help="PDF files to process", nargs='+')
@@ -591,11 +595,11 @@ def parse_args(argv):
     g.add_argument("-w", "--wrap", metavar="COLS", type=int,
                    help="wrap text at this many output columns")
 
-    return p.parse_args(argv)
+    return p.parse_args()
 
 
-def main(argv):
-    args = parse_args(argv)
+def main():
+    args = parse_args()
 
     global COLUMNS_PER_PAGE
     COLUMNS_PER_PAGE = args.cols
@@ -615,4 +619,4 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    main()
