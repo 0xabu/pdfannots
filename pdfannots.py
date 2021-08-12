@@ -8,6 +8,7 @@ Extracts annotations from a PDF file in markdown format for use in reviewing.
 __version__ = '0.1'
 
 import sys, io, textwrap, argparse, datetime, logging
+import abc, typing
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
 from pdfminer.layout import LAParams, LTContainer, LTAnno, LTChar, LTTextBox
@@ -242,6 +243,11 @@ class Pos:
             y = y1
         return (x, y)
 
+class Outline:
+    def __init__(self, title, dest, pos):
+        self.title = title
+        self.dest = dest
+        self.pos = pos
 
 def _decode_datetime(dts):
     if dts.startswith('D:'):  # seems 'optional but recommended'
@@ -294,40 +300,49 @@ def getannots(pdfannots, page):
     return annots
 
 
-class PrettyPrinter:
+class Printer(abc.ABC):
     """
-    Pretty-print the extracted annotations according to the output options.
+    Base class for pretty-printers.
     """
-    def __init__(self, outlines, wrapcol=None, condense=True):
+    def __init__(self, args):
         """
-        outlines List of outlines
-        wrapcol  Specifies the column at which output is word-wrapped
-        condense Permit use of the condensed format
+        Perform initialisation and capture any relevant output options from the args object.
         """
-        self.outlines = outlines
-        self.wrapcol = wrapcol
-        self.condense = condense
+        pass
 
-        self.BULLET_INDENT1 = " * "
-        self.BULLET_INDENT2 = "   "
-        self.QUOTE_INDENT = self.BULLET_INDENT2 + "> "
-        self.ANNOT_NITS = frozenset({'Squiggly', 'StrikeOut', 'Underline'})
+    @abc.abstractmethod
+    def __call__(self, annots: typing.Sequence[Annotation], outlines: typing.Sequence[Outline]):
+        """
+        Pretty-print the extracted annotations.
+        """
+        pass
 
-        if wrapcol:
+
+class MarkdownPrinter(Printer):
+    BULLET_INDENT1 = " * "
+    BULLET_INDENT2 = "   "
+    QUOTE_INDENT = BULLET_INDENT2 + "> "
+
+    def __init__(self, args):
+        self.wrapcol = args.wrap      # Specifies the column at which output is word-wrapped
+        self.condense = args.condense # Permit use of the condensed format
+        self.outfile = args.output    # File handle for output
+
+        if self.wrapcol:
             # for bullets, we need two text wrappers: one for the leading bullet on the first paragraph, one without
             self.bullet_tw1 = textwrap.TextWrapper(
-                width=wrapcol,
+                width=self.wrapcol,
                 initial_indent=self.BULLET_INDENT1,
                 subsequent_indent=self.BULLET_INDENT2)
 
             self.bullet_tw2 = textwrap.TextWrapper(
-                width=wrapcol,
+                width=self.wrapcol,
                 initial_indent=self.BULLET_INDENT2,
                 subsequent_indent=self.BULLET_INDENT2)
 
             # for blockquotes, each line is prefixed with "> "
             self.quote_tw = textwrap.TextWrapper(
-                width=wrapcol,
+                width=self.wrapcol,
                 initial_indent=self.QUOTE_INDENT,
                 subsequent_indent=self.QUOTE_INDENT)
 
@@ -425,48 +440,50 @@ class PrettyPrinter:
             quotelen = len(text) if text else None
             return self.format_bullet(msgparas, quotepos, quotelen) + "\n"
 
-    def printall(self, annots, outfile):
+    def __call__(self, annots: typing.Sequence[Annotation], outlines: typing.Sequence[Outline]):
         for a in annots:
-            print(self.format_annot(a, a.tagname), file=outfile)
+            print(self.format_annot(a, a.tagname), file=self.outfile)
 
-    def printall_grouped(self, sections, annots, outfile):
-        """
-        sections controls the order of sections output
-                e.g.: ["highlights", "comments", "nits"]
-        """
+
+class GroupedMarkdownPrinter(MarkdownPrinter):
+    ANNOT_NITS = frozenset({'Squiggly', 'StrikeOut', 'Underline'})
+
+    def __init__(self, args):
+        super().__init__(args)
+        self.sections = args.sections # controls the order of sections output
+                                      # e.g.: ["highlights", "comments", "nits"]
+
+    def __call__(self, annots: typing.Sequence[Annotation], outlines: typing.Sequence[Outline]):
         self._printheader_called = False
 
         def printheader(name):
             # emit blank separator line if needed
             if self._printheader_called:
-                print("", file=outfile)
+                print("", file=self.outfile)
             else:
                 self._printheader_called = True
-            print("## " + name + "\n", file=outfile)
+            print("## " + name + "\n", file=self.outfile)
 
         highlights = [a for a in annots if a.tagname == 'Highlight' and a.contents is None]
         comments = [a for a in annots if a.tagname not in self.ANNOT_NITS and a.contents]
         nits = [a for a in annots if a.tagname in self.ANNOT_NITS]
 
-        for secname in sections:
+        for secname in self.sections:
             if highlights and secname == 'highlights':
                 printheader("Highlights")
                 for a in highlights:
-                    print(self.format_annot(a), file=outfile)
+                    print(self.format_annot(a), file=self.outfile)
 
             if comments and secname == 'comments':
                 printheader("Detailed comments")
                 for a in comments:
-                    print(self.format_annot(a), file=outfile)
+                    print(self.format_annot(a), file=self.outfile)
 
             if nits and secname == 'nits':
                 printheader("Nits")
                 for a in nits:
-                    if a.tagname == 'StrikeOut':
-                        extra = "delete"
-                    else:
-                        extra = None
-                    print(self.format_annot(a, extra), file=outfile)
+                    extra = "delete" if a.tagname == 'StrikeOut' else None
+                    print(self.format_annot(a, extra), file=self.outfile)
 
 
 def resolve_dest(doc, dest):
@@ -478,11 +495,6 @@ def resolve_dest(doc, dest):
         dest = dest['D']
     return dest
 
-class Outline:
-    def __init__(self, title, dest, pos):
-        self.title = title
-        self.dest = dest
-        self.pos = pos
 
 def get_outlines(doc, pageslist, pagesdict):
     result = []
@@ -603,18 +615,18 @@ def parse_args():
 def main():
     args = parse_args()
 
+    if args.group:
+        printer = GroupedMarkdownPrinter(args)
+    else:
+        printer = MarkdownPrinter(args)
+
     for file in args.input:
         (annots, outlines) = process_file(file, args.cols, args.progress)
-
-        pp = PrettyPrinter(outlines, args.wrap, args.condense)
 
         if args.printfilename and annots:
             print("# File: '%s'\n" % file.name)
 
-        if args.group:
-            pp.printall_grouped(args.sections, annots, args.output)
-        else:
-            pp.printall(annots, args.output)
+        printer(annots, outlines)
 
 
 if __name__ == "__main__":
