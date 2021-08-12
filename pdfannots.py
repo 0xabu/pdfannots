@@ -34,9 +34,6 @@ SUBSTITUTIONS = {
     u'…': '...',
 }
 
-ANNOT_SUBTYPES = frozenset({'Text', 'Highlight', 'Squiggly', 'StrikeOut', 'Underline'})
-ANNOT_NITS = frozenset({'Squiggly', 'StrikeOut', 'Underline'})
-
 class RectExtractor(TextConverter):
     def __init__(self, rsrcmgr, codec='utf-8', pageno=1, laparams=None):
         dummy = io.StringIO()
@@ -255,6 +252,7 @@ def _decode_datetime(dts):
             continue
     return None
 
+ANNOT_SUBTYPES = frozenset({'Text', 'Highlight', 'Squiggly', 'StrikeOut', 'Underline'})
 
 def getannots(pdfannots, page):
     annots = []
@@ -308,6 +306,7 @@ class PrettyPrinter:
         self.BULLET_INDENT1 = " * "
         self.BULLET_INDENT2 = "   "
         self.QUOTE_INDENT = self.BULLET_INDENT2 + "> "
+        self.ANNOT_NITS = frozenset({'Squiggly', 'StrikeOut', 'Underline'})
 
         if wrapcol:
             # for bullets, we need two text wrappers: one for the leading bullet on the first paragraph, one without
@@ -441,8 +440,8 @@ class PrettyPrinter:
             print("## " + name + "\n", file=outfile)
 
         highlights = [a for a in annots if a.tagname == 'Highlight' and a.contents is None]
-        comments = [a for a in annots if a.tagname not in ANNOT_NITS and a.contents]
-        nits = [a for a in annots if a.tagname in ANNOT_NITS]
+        comments = [a for a in annots if a.tagname not in self.ANNOT_NITS and a.contents]
+        nits = [a for a in annots if a.tagname in self.ANNOT_NITS]
 
         for secname in sections:
             if highlights and secname == 'highlights':
