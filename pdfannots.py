@@ -5,7 +5,9 @@
 Extracts annotations from a PDF file in markdown format for use in reviewing.
 """
 
-import sys, io, textwrap, argparse, datetime
+__version__ = '0.1'
+
+import sys, io, textwrap, argparse, datetime, logging
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
 from pdfminer.layout import LAParams, LTContainer, LTAnno, LTChar, LTTextBox
@@ -16,8 +18,6 @@ from pdfminer.psparser import PSLiteralTable, PSLiteral
 import pdfminer.pdftypes as pdftypes
 import pdfminer.settings
 import pdfminer.utils
-
-__version__ = '0.1'
 
 pdfminer.settings.STRICT = False
 
@@ -39,31 +39,6 @@ ANNOT_NITS = frozenset({'Squiggly', 'StrikeOut', 'Underline'})
 
 COLUMNS_PER_PAGE = 2 # default only, changed via a command-line parameter
 
-DEBUG_BOXHIT = False
-
-def boxhit(item, box):
-    (x0, y0, x1, y1) = box
-    assert item.x0 <= item.x1 and item.y0 <= item.y1
-    assert x0 <= x1 and y0 <= y1
-
-    # does most of the item area overlap the box?
-    # http://math.stackexchange.com/questions/99565/simplest-way-to-calculate-the-intersect-area-of-two-rectangles
-    x_overlap = max(0, min(item.x1, x1) - max(item.x0, x0))
-    y_overlap = max(0, min(item.y1, y1) - max(item.y0, y0))
-    overlap_area = x_overlap * y_overlap
-    item_area = (item.x1 - item.x0) * (item.y1 - item.y0)
-    assert overlap_area <= item_area
-
-    if DEBUG_BOXHIT and overlap_area != 0:
-        print("'%s' %f-%f,%f-%f in %f-%f,%f-%f %2.0f%%" %
-              (item.get_text(), item.x0, item.x1, item.y0, item.y1, x0, x1, y0, y1,
-               100 * overlap_area / item_area))
-
-    if item_area == 0:
-        return False
-    else:
-        return overlap_area >= 0.5 * item_area
-
 class RectExtractor(TextConverter):
     def __init__(self, rsrcmgr, codec='utf-8', pageno=1, laparams=None):
         dummy = io.StringIO()
@@ -80,10 +55,34 @@ class RectExtractor(TextConverter):
         self.render(ltpage)
 
     def testboxes(self, item):
-        hits = frozenset({a for a in self.annots if any({boxhit(item, b) for b in a.boxes})})
+        hits = frozenset({a for a in self.annots if any({self.boxhit(item, b) for b in a.boxes})})
         self._lasthit = hits
         self._curline.update(hits)
         return hits
+
+    @staticmethod
+    def boxhit(item, box):
+        (x0, y0, x1, y1) = box
+        assert item.x0 <= item.x1 and item.y0 <= item.y1
+        assert x0 <= x1 and y0 <= y1
+
+        # does most of the item area overlap the box?
+        # http://math.stackexchange.com/questions/99565/simplest-way-to-calculate-the-intersect-area-of-two-rectangles
+        x_overlap = max(0, min(item.x1, x1) - max(item.x0, x0))
+        y_overlap = max(0, min(item.y1, y1) - max(item.y0, y0))
+        overlap_area = x_overlap * y_overlap
+        item_area = (item.x1 - item.x0) * (item.y1 - item.y0)
+        assert overlap_area <= item_area
+
+        if overlap_area != 0:
+            logging.debug("Box hit: '%s' %f-%f,%f-%f in %f-%f,%f-%f %2.0f%%",
+                item.get_text(), item.x0, item.x1, item.y0, item.y1, x0, x1, y0, y1,
+                100 * overlap_area / item_area)
+
+        if item_area == 0:
+            return False
+        else:
+            return overlap_area >= 0.5 * item_area
 
     # "broadcast" newlines to _all_ annotations that received any text on the
     # current line, in case they see more text on the next line, even if the
