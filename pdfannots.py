@@ -21,7 +21,7 @@ import pdfminer.utils
 
 pdfminer.settings.STRICT = False
 
-SUBSTITUTIONS = {
+CHARACTER_SUBSTITUTIONS = {
     u'ﬀ': 'ff',
     u'ﬁ': 'fi',
     u'ﬂ': 'fl',
@@ -33,6 +33,13 @@ SUBSTITUTIONS = {
     u'”': '"',
     u'…': '...',
 }
+
+def cleanup_text(text):
+    """
+    Normalise line endings and replace common special characters with plain ASCII equivalents.
+    """
+    text = text.replace('\r\n', '\n').replace('\r', '\n')
+    return ''.join([CHARACTER_SUBSTITUTIONS.get(c, c) for c in text])
 
 class RectExtractor(TextConverter):
     def __init__(self, rsrcmgr, codec='utf-8', pageno=1, laparams=None):
@@ -178,7 +185,7 @@ class Annotation:
         if self.boxes:
             if self.text:
                 # replace tex ligatures (and other common odd characters)
-                return ''.join([SUBSTITUTIONS.get(c, c) for c in self.text.strip()])
+                return cleanup_text(self.text.strip())
             else:
                 # something's strange -- we have boxes but no text for them
                 return "(XXX: missing text!)"
@@ -264,9 +271,7 @@ def getannots(pdfannots, page):
         contents = pa.get('Contents')
         if contents is not None:
             # decode as string, normalise line endings, replace special characters
-            contents = pdfminer.utils.decode_text(contents)
-            contents = contents.replace('\r\n', '\n').replace('\r', '\n')
-            contents = ''.join([SUBSTITUTIONS.get(c, c) for c in contents])
+            contents = cleanup_text(pdfminer.utils.decode_text(contents))
 
         coords = pdftypes.resolve1(pa.get('QuadPoints'))
         rect = pdftypes.resolve1(pa.get('Rect'))
