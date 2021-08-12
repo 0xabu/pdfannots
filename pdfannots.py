@@ -37,8 +37,6 @@ SUBSTITUTIONS = {
 ANNOT_SUBTYPES = frozenset({'Text', 'Highlight', 'Squiggly', 'StrikeOut', 'Underline'})
 ANNOT_NITS = frozenset({'Squiggly', 'StrikeOut', 'Underline'})
 
-COLUMNS_PER_PAGE = 2 # default only, changed via a command-line parameter
-
 class RectExtractor(TextConverter):
     def __init__(self, rsrcmgr, codec='utf-8', pageno=1, laparams=None):
         dummy = io.StringIO()
@@ -124,9 +122,10 @@ class RectExtractor(TextConverter):
 
 
 class Page:
-    def __init__(self, pageno, mediabox):
+    def __init__(self, pageno, mediabox, ncolumns):
         self.pageno = pageno
         self.mediabox = mediabox
+        self.ncolumns = ncolumns
         self.annots = []
 
     def __eq__(self, other):
@@ -219,7 +218,7 @@ class Pos:
             (sx, sy) = self.normalise_to_mediabox()
             (ox, oy) = other.normalise_to_mediabox()
             (x0, y0, x1, y1) = self.page.mediabox
-            colwidth = (x1 - x0) / COLUMNS_PER_PAGE
+            colwidth = (x1 - x0) / self.page.ncolumns
             self_col = (sx - x0) // colwidth
             other_col = (ox - x0) // colwidth
             return self_col < other_col or (self_col == other_col and sy > oy)
@@ -512,7 +511,7 @@ def get_outlines(doc, pageslist, pagesdict):
     return result
 
 
-def process_file(fh, emit_progress=False):
+def process_file(fh, columns_per_page, emit_progress=False):
     rsrcmgr = PDFResourceManager()
     laparams = LAParams()
     device = RectExtractor(rsrcmgr, laparams=laparams)
@@ -525,7 +524,7 @@ def process_file(fh, emit_progress=False):
     allannots = []
 
     for (pageno, pdfpage) in enumerate(PDFPage.create_pages(doc)):
-        page = Page(pageno, pdfpage.mediabox)
+        page = Page(pageno, pdfpage.mediabox, columns_per_page)
         pageslist.append(page)
         pagesdict[pdfpage.pageid] = page
         if pdfpage.annots:
@@ -600,11 +599,8 @@ def parse_args():
 def main():
     args = parse_args()
 
-    global COLUMNS_PER_PAGE
-    COLUMNS_PER_PAGE = args.cols
-
     for file in args.input:
-        (annots, outlines) = process_file(file, args.progress)
+        (annots, outlines) = process_file(file, args.cols, args.progress)
 
         pp = PrettyPrinter(outlines, args.wrap, args.condense)
 

@@ -8,11 +8,9 @@ class ExtractionTestBase(unittest.TestCase):
     columns_per_page = 1
 
     def setUp(self):
-        pdfannots.COLUMNS_PER_PAGE = self.columns_per_page
-
         path = pathlib.Path(__file__).parent / 'tests' / self.filename
         with path.open('rb') as f:
-            (annots, outlines) = pdfannots.process_file(f)
+            (annots, outlines) = pdfannots.process_file(f, self.columns_per_page)
             self.annots = annots
             self.outlines = outlines
 
