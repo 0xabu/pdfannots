@@ -5,13 +5,15 @@
 Extracts annotations from a PDF file in markdown format for use in reviewing.
 """
 
+from __future__ import annotations # XXX: Python 3.7 only; https://stackoverflow.com/questions/55320236/does-python-evaluate-type-hinting-of-a-forward-reference
+
 __version__ = '0.1'
 
 import sys, io, textwrap, argparse, datetime, logging
 import abc, typing
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
-from pdfminer.layout import LAParams, LTContainer, LTAnno, LTChar, LTTextBox
+from pdfminer.layout import LAParams, LTContainer, LTAnno, LTChar, LTPage, LTTextBox, LTItem
 from pdfminer.converter import TextConverter
 from pdfminer.pdfparser import PDFParser
 from pdfminer.pdfdocument import PDFDocument, PDFNoOutlines
@@ -35,36 +37,42 @@ CHARACTER_SUBSTITUTIONS = {
     u'…': '...',
 }
 
-def cleanup_text(text):
+def cleanup_text(text:str) -> str:
     """
     Normalise line endings and replace common special characters with plain ASCII equivalents.
     """
     text = text.replace('\r\n', '\n').replace('\r', '\n')
     return ''.join([CHARACTER_SUBSTITUTIONS.get(c, c) for c in text])
 
+Box = typing.Tuple[float, float, float, float] # (x0, y0, x1, y1)
+
 class RectExtractor(TextConverter):
+    annots: typing.Set[Annotation]
+    _lasthit: typing.FrozenSet[Annotation]
+    _curline: typing.Set[Annotation]
+
     def __init__(self, rsrcmgr, codec='utf-8', pageno=1, laparams=None):
         dummy = io.StringIO()
         TextConverter.__init__(self, rsrcmgr, outfp=dummy, codec=codec, pageno=pageno, laparams=laparams)
         self.annots = set()
 
-    def setannots(self, annots):
+    def setannots(self, annots: typing.Sequence[Annotation]) -> None:
         self.annots = {a for a in annots if a.boxes}
 
     # main callback from parent PDFConverter
-    def receive_layout(self, ltpage):
+    def receive_layout(self, ltpage: LTPage) -> None:
         self._lasthit = frozenset()
         self._curline = set()
         self.render(ltpage)
 
-    def testboxes(self, item):
+    def testboxes(self, item: LTItem) -> typing.AbstractSet[Annotation]:
         hits = frozenset({a for a in self.annots if any({self.boxhit(item, b) for b in a.boxes})})
         self._lasthit = hits
         self._curline.update(hits)
         return hits
 
     @staticmethod
-    def boxhit(item, box):
+    def boxhit(item, box: Box) -> bool:
         (x0, y0, x1, y1) = box
         assert item.x0 <= item.x1 and item.y0 <= item.y1
         assert x0 <= x1 and y0 <= y1
@@ -90,12 +98,12 @@ class RectExtractor(TextConverter):
     # "broadcast" newlines to _all_ annotations that received any text on the
     # current line, in case they see more text on the next line, even if the
     # most recent character was not covered.
-    def capture_newline(self):
+    def capture_newline(self) -> None:
         for a in self._curline:
             a.capture('\n')
         self._curline = set()
 
-    def render(self, item):
+    def render(self, item: LTItem) -> None:
         # If it's a container, recurse on nested items.
         if isinstance(item, LTContainer):
             for child in item:
@@ -127,7 +135,12 @@ class RectExtractor(TextConverter):
 
 
 class Page:
-    def __init__(self, pageno, mediabox, ncolumns):
+    pageno: int
+    mediabox: Box
+    ncolumns: int
+    annots: typing.List[Annotation]
+
+    def __init__(self, pageno: int, mediabox: Box, ncolumns: int):
         self.pageno = pageno
         self.mediabox = mediabox
         self.ncolumns = ncolumns
@@ -141,6 +154,15 @@ class Page:
 
 
 class Annotation:
+    page: Page
+    tagname: str
+    contents: typing.Optional[str]
+    rect: typing.Optional[Box]
+    author: typing.Optional[str]
+    created: typing.Optional[str]
+    boxes: typing.List[Box]
+    text: str
+
     def __init__(self, page, tagname, coords=None, rect=None, contents=None, author=None, created=None):
         self.page = page
         self.tagname = tagname
@@ -153,11 +175,9 @@ class Annotation:
         self.created = created
         self.text = ''
 
-        if coords is None:
-            self.boxes = None
-        else:
+        self.boxes = []
+        if coords:
             assert len(coords) % 8 == 0
-            self.boxes = []
             while coords != []:
                 (x0,y0,x1,y1,x2,y2,x3,y3) = coords[:8]
                 coords = coords[8:]
@@ -166,7 +186,7 @@ class Annotation:
                 box = (min(xvals), min(yvals), max(xvals), max(yvals))
                 self.boxes.append(box)
 
-    def capture(self, text):
+    def capture(self, text: str) -> None:
         if text == '\n':
             # Kludge for latex: elide hyphens
             if self.text.endswith('-'):
@@ -182,7 +202,7 @@ class Annotation:
         else:
             self.text += text
 
-    def gettext(self):
+    def gettext(self) -> typing.Optional[str]:
         if self.boxes:
             if self.text:
                 # replace tex ligatures (and other common odd characters)
@@ -193,7 +213,7 @@ class Annotation:
         else:
             return None
 
-    def getstartpos(self):
+    def getstartpos(self) -> typing.Optional[Pos]:
         if self.rect:
             (x0, y0, x1, y1) = self.rect
         elif self.boxes:
@@ -209,7 +229,7 @@ class Annotation:
 
 
 class Pos:
-    def __init__(self, page, x, y):
+    def __init__(self, page: Page, x: float, y: float):
         self.page = page
         self.x = x
         self.y = y
@@ -230,7 +250,7 @@ class Pos:
         else:
             return False
 
-    def normalise_to_mediabox(self):
+    def normalise_to_mediabox(self) -> typing.Tuple[float, float]:
         x, y = self.x, self.y
         (x0, y0, x1, y1) = self.page.mediabox
         if x < x0:
@@ -244,12 +264,12 @@ class Pos:
         return (x, y)
 
 class Outline:
-    def __init__(self, title, dest, pos):
+    def __init__(self, title: str, dest: typing.Any, pos: Pos):
         self.title = title
         self.dest = dest
         self.pos = pos
 
-def _decode_datetime(dts):
+def _decode_datetime(dts: str) -> typing.Optional[datetime.datetime]:
     if dts.startswith('D:'):  # seems 'optional but recommended'
         dts = dts[2:]
     dts = dts.replace("'", '')
@@ -267,7 +287,7 @@ def _decode_datetime(dts):
 
 ANNOT_SUBTYPES = frozenset({'Text', 'Highlight', 'Squiggly', 'StrikeOut', 'Underline'})
 
-def getannots(pdfannots, page):
+def getannots(pdfannots: typing.Iterable[typing.Any], page: Page) -> typing.List[Annotation]:
     annots = []
     for pa in pdfannots:
         subtype = pa.get('Subtype')
@@ -281,9 +301,11 @@ def getannots(pdfannots, page):
 
         coords = pdftypes.resolve1(pa.get('QuadPoints'))
         rect = pdftypes.resolve1(pa.get('Rect'))
+
         author = pdftypes.resolve1(pa.get('T'))
         if author is not None:
             author = pdfminer.utils.decode_text(author)
+
         created = None
         dobj = pa.get('CreationDate')
         # some pdf apps set modification date, but not creation date
@@ -294,6 +316,7 @@ def getannots(pdfannots, page):
         if createds is not None:
             createds = pdfminer.utils.decode_text(createds)
             created = _decode_datetime(createds)
+
         a = Annotation(page, subtype.name, coords, rect, contents, author=author, created=created)
         annots.append(a)
 
@@ -346,25 +369,25 @@ class MarkdownPrinter(Printer):
                 initial_indent=self.QUOTE_INDENT,
                 subsequent_indent=self.QUOTE_INDENT)
 
-    def nearest_outline(self, pos):
+    def nearest_outline(self, outlines: typing.Sequence[Outline], pos: Pos) -> typing.Optional[Outline]:
         prev = None
-        for o in self.outlines:
+        for o in outlines:
             if o.pos < pos:
                 prev = o
             else:
                 break
         return prev
 
-    def format_pos(self, annot):
+    def format_pos(self, annot: Annotation, outlines: typing.Sequence[Outline]) -> str:
         apos = annot.getstartpos()
-        o = self.nearest_outline(apos) if apos else None
+        o = self.nearest_outline(outlines, apos) if apos else None
         if o:
             return "Page %d (%s)" % (annot.page.pageno + 1, o.title)
         else:
             return "Page %d" % (annot.page.pageno + 1)
 
     # format a Markdown bullet, wrapped as desired
-    def format_bullet(self, paras, quotepos=None, quotelen=None):
+    def format_bullet(self, paras: typing.List[str], quotepos=None, quotelen=None) -> str:
         # quotepos/quotelen specify the first paragraph (if any) to be formatted
         # as a block-quote, and the length of the blockquote in paragraphs
         if quotepos:
@@ -399,7 +422,7 @@ class MarkdownPrinter(Printer):
 
         return ret
 
-    def format_annot(self, annot, extra=None):
+    def format_annot(self, annot: Annotation, outlines: typing.Sequence[Outline], extra=None) -> str:
         # capture item text and contents (i.e. the comment), and split each into paragraphs
         rawtext = annot.gettext()
         text = [l for l in rawtext.strip().splitlines() if l] if rawtext else []
@@ -410,7 +433,7 @@ class MarkdownPrinter(Printer):
         assert text or comment
 
         # compute the formatted position (and extra bit if needed) as a label
-        label = self.format_pos(annot) + (" " + extra if extra else "") + ":"
+        label = self.format_pos(annot, outlines) + (" " + extra if extra else "") + ":"
 
         # If we have short (single-paragraph, few words) text with a short or no
         # comment, and the text contains no embedded full stops or quotes, then
@@ -442,7 +465,7 @@ class MarkdownPrinter(Printer):
 
     def __call__(self, annots: typing.Sequence[Annotation], outlines: typing.Sequence[Outline]):
         for a in annots:
-            print(self.format_annot(a, a.tagname), file=self.outfile)
+            print(self.format_annot(a, outlines, a.tagname), file=self.outfile)
 
 
 class GroupedMarkdownPrinter(MarkdownPrinter):
@@ -472,21 +495,21 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
             if highlights and secname == 'highlights':
                 printheader("Highlights")
                 for a in highlights:
-                    print(self.format_annot(a), file=self.outfile)
+                    print(self.format_annot(a, outlines), file=self.outfile)
 
             if comments and secname == 'comments':
                 printheader("Detailed comments")
                 for a in comments:
-                    print(self.format_annot(a), file=self.outfile)
+                    print(self.format_annot(a, outlines), file=self.outfile)
 
             if nits and secname == 'nits':
                 printheader("Nits")
                 for a in nits:
                     extra = "delete" if a.tagname == 'StrikeOut' else None
-                    print(self.format_annot(a, extra), file=self.outfile)
+                    print(self.format_annot(a, outlines, extra), file=self.outfile)
 
 
-def resolve_dest(doc, dest):
+def resolve_dest(doc: PDFDocument, dest: typing.Any) -> typing.Any:
     if isinstance(dest, bytes):
         dest = pdftypes.resolve1(doc.get_dest(dest))
     elif isinstance(dest, PSLiteral):
@@ -496,7 +519,7 @@ def resolve_dest(doc, dest):
     return dest
 
 
-def get_outlines(doc, pageslist, pagesdict):
+def get_outlines(doc: PDFDocument, pageslist: typing.List[Page], pagesdict: typing.Mapping[typing.Any, Page]):
     result = []
     for (_, title, destname, actionref, _) in doc.get_outlines():
         if destname is None and actionref:
@@ -513,13 +536,13 @@ def get_outlines(doc, pageslist, pagesdict):
         if dest[1] is PSLiteralTable.intern('XYZ'):
             (pageref, _, targetx, targety) = dest[:4]
 
+            page = None
             if type(pageref) is int:
                 page = pageslist[pageref]
             elif isinstance(pageref, pdftypes.PDFObjRef):
                 page = pagesdict[pageref.objid]
             else:
                 sys.stderr.write('Warning: unsupported pageref in outline: %s\n' % pageref)
-                page = None
 
             if page:
                 pos = Pos(page, targetx, targety)
@@ -527,7 +550,8 @@ def get_outlines(doc, pageslist, pagesdict):
     return result
 
 
-def process_file(fh, columns_per_page, emit_progress=False):
+def process_file(fh: typing.BinaryIO, columns_per_page: int, emit_progress=False
+                ) -> typing.Tuple[typing.List[Annotation], typing.List[Outline]]:
     rsrcmgr = PDFResourceManager()
     laparams = LAParams()
     device = RectExtractor(rsrcmgr, laparams=laparams)
