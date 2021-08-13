@@ -1,11 +1,9 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 import os.path
 import pathlib
 
-here = pathlib.Path(__file__).parent.resolve()
-
 def get_version_from_file(filename):
-    with open(here / filename, 'r') as fh:
+    with open(filename, 'r') as fh:
         for line in fh.readlines():
             if line.startswith('__version__'):
                 delim = '"' if '"' in line else "'"
@@ -14,10 +12,11 @@ def get_version_from_file(filename):
     raise RuntimeError("Unable to find version string in " + filename)
 
 def main():
+    here = pathlib.Path(__file__).parent.resolve()
     name = 'pdfannots'
     setup(
         name=name,
-        version=get_version_from_file(name + '.py'),
+        version=get_version_from_file(here / name / '__init__.py'),
         description='Tool to extract PDF annotations as markdown for reviewing',
         long_description=(here/'README.md').read_text(),
         long_description_content_type='text/markdown',
@@ -29,10 +28,10 @@ def main():
             'Programming Language :: Python :: 3',
         ],
         zip_safe=False,
-        py_modules=[name],
+        packages=find_packages(include=['pdfannots', 'pdfannots.*']),
         entry_points={
           'console_scripts': [
-            'pdfannots=pdfannots:main',
+            'pdfannots=pdfannots.cli:main',
             ],
         },
         python_requires='>=3',

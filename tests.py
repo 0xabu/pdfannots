@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta, timezone
 import unittest, pathlib
-import pdfannots
+import pdfannots, pdfannots.utils
 
 class ExtractionTestBase(unittest.TestCase):
     columns_per_page = 1
@@ -56,7 +56,7 @@ class UnitTests(unittest.TestCase):
             ("D:20101112191817"       , datetime(2010, 11, 12, 19, 18, 17)),
         ]
         for dts, expected in datas:
-            dt = pdfannots._decode_datetime(dts)
+            dt = pdfannots.utils.decode_datetime(dts)
             self.assertEqual(dt, expected)
 
 class Issue9(ExtractionTestBase):
