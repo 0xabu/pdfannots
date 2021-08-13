@@ -2,7 +2,7 @@ import datetime
 import typing
 from .utils import cleanup_text
 
-Box = typing.Tuple[float, float, float, float] # (x0, y0, x1, y1)
+Box = typing.Tuple[float, float, float, float]  # (x0, y0, x1, y1)
 
 
 class Page:
@@ -71,14 +71,15 @@ class Annotation:
     boxes: typing.List[Box]
     text: str
 
-    def __init__(self,
-                 page: Page,
-                 tagname: str,
-                 coords:typing.Optional[typing.Sequence[float]] =None,
-                 rect:typing.Optional[Box] =None,
-                 contents:typing.Optional[str] =None,
-                 author:typing.Optional[str] =None,
-                 created:typing.Optional[datetime.datetime] =None):
+    def __init__(
+            self,
+            page: Page,
+            tagname: str,
+            coords: typing.Optional[typing.Sequence[float]] = None,
+            rect: typing.Optional[Box] = None,
+            contents: typing.Optional[str] = None,
+            author: typing.Optional[str] = None,
+            created: typing.Optional[datetime.datetime] = None):
         self.page = page
         self.tagname = tagname
         if contents == '':
@@ -94,7 +95,7 @@ class Annotation:
         if coords:
             assert len(coords) % 8 == 0
             while coords != []:
-                (x0,y0,x1,y1,x2,y2,x3,y3) = coords[:8]
+                (x0, y0, x1, y1, x2, y2, x3, y3) = coords[:8]
                 coords = coords[8:]
                 xvals = [x0, x1, x2, x3]
                 yvals = [y0, y1, y2, y3]

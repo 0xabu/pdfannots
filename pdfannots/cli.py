@@ -4,10 +4,12 @@ import sys
 from . import __doc__, __version__, process_file
 from .printer.markdown import MarkdownPrinter, GroupedMarkdownPrinter
 
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(prog='pdfannots', description=__doc__)
 
-    p.add_argument('--version', action='version', version='%(prog)s ' + __version__)
+    p.add_argument('--version', action='version',
+                   version='%(prog)s ' + __version__)
 
     p.add_argument("input", metavar="INFILE", type=argparse.FileType("rb"),
                    help="PDF files to process", nargs='+')
@@ -51,4 +53,3 @@ def main() -> None:
             print("# File: '%s'\n" % file.name, file=args.output)
 
         printer(annots, outlines)
-

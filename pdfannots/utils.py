@@ -14,12 +14,14 @@ CHARACTER_SUBSTITUTIONS = {
     u'…': '...',
 }
 
-def cleanup_text(text:str) -> str:
+
+def cleanup_text(text: str) -> str:
     """
     Normalise line endings and replace common special characters with plain ASCII equivalents.
     """
     text = text.replace('\r\n', '\n').replace('\r', '\n')
     return ''.join([CHARACTER_SUBSTITUTIONS.get(c, c) for c in text])
+
 
 def decode_datetime(dts: str) -> typing.Optional[datetime.datetime]:
     if dts.startswith('D:'):  # seems 'optional but recommended'

@@ -5,6 +5,7 @@ import typing
 from . import Printer
 from ..types import Pos, Outline, Annotation
 
+
 class MarkdownPrinter(Printer):
     BULLET_INDENT1 = " * "
     BULLET_INDENT2 = "   "
@@ -12,11 +13,12 @@ class MarkdownPrinter(Printer):
 
     def __init__(self, args: argparse.Namespace):
         super().__init__(args)
-        self.wrapcol = args.wrap      # Specifies the column at which output is word-wrapped
-        self.condense = args.condense # Permit use of the condensed format
+        self.wrapcol = args.wrap       # Column at which output is word-wrapped
+        self.condense = args.condense  # Permit use of the condensed format
 
         if self.wrapcol:
-            # for bullets, we need two text wrappers: one for the leading bullet on the first paragraph, one without
+            # For bullets, we need two text wrappers: one for the leading
+            # bullet on the first paragraph, one without.
             self.bullet_tw1 = textwrap.TextWrapper(
                 width=self.wrapcol,
                 initial_indent=self.BULLET_INDENT1,
@@ -27,13 +29,18 @@ class MarkdownPrinter(Printer):
                 initial_indent=self.BULLET_INDENT2,
                 subsequent_indent=self.BULLET_INDENT2)
 
-            # for blockquotes, each line is prefixed with "> "
+            # For blockquotes, each line is prefixed with "> "
             self.quote_tw = textwrap.TextWrapper(
                 width=self.wrapcol,
                 initial_indent=self.QUOTE_INDENT,
                 subsequent_indent=self.QUOTE_INDENT)
 
-    def nearest_outline(self, outlines: typing.Sequence[Outline], pos: Pos) -> typing.Optional[Outline]:
+    def nearest_outline(
+        self,
+        outlines: typing.Sequence[Outline],
+        pos: Pos
+    ) -> typing.Optional[Outline]:
+
         prev = None
         for o in outlines:
             if o.pos < pos:
@@ -42,7 +49,12 @@ class MarkdownPrinter(Printer):
                 break
         return prev
 
-    def format_pos(self, annot: Annotation, outlines: typing.Sequence[Outline]) -> str:
+    def format_pos(
+        self,
+        annot: Annotation,
+        outlines: typing.Sequence[Outline]
+    ) -> str:
+
         apos = annot.getstartpos()
         o = self.nearest_outline(outlines, apos) if apos else None
         if o:
@@ -50,17 +62,19 @@ class MarkdownPrinter(Printer):
         else:
             return "Page %d" % (annot.page.pageno + 1)
 
-    # format a Markdown bullet, wrapped as desired
     def format_bullet(
             self,
             paras: typing.List[str],
-            quote: typing.Optional[typing.Tuple[int, int]] =None
-            ) -> str:
+            quote: typing.Optional[typing.Tuple[int, int]] = None
+    ) -> str:
+        """
+        Format a Markdown bullet, wrapped as desired.
+        """
 
         if quote is not None:
             (quotepos, quotelen) = quote
-            assert quotepos > 0 # first paragraph to format as a block-quote
-            assert quotelen > 0 # length of the blockquote in paragraphs
+            assert quotepos > 0  # first paragraph to format as a block-quote
+            assert quotelen > 0  # length of the blockquote in paragraphs
             assert quotepos + quotelen <= len(paras)
 
         # emit the first paragraph with the bullet
@@ -94,20 +108,23 @@ class MarkdownPrinter(Printer):
             self,
             annot: Annotation,
             outlines: typing.Sequence[Outline],
-            extra: typing.Optional[str] =None
-            ) -> str:
+            extra: typing.Optional[str] = None
+    ) -> str:
 
         # capture item text and contents (i.e. the comment), and split each into paragraphs
         rawtext = annot.gettext()
-        text = [l for l in rawtext.strip().splitlines() if l] if rawtext else []
-        comment = [l for l in annot.contents.splitlines() if l] if annot.contents else []
+        text = ([l for l in rawtext.strip().splitlines() if l]
+                if rawtext else [])
+        comment = ([l for l in annot.contents.splitlines() if l]
+                   if annot.contents else [])
 
         # we are either printing: item text and item contents, or one of the two
         # if we see an annotation with neither, something has gone wrong
         assert text or comment
 
         # compute the formatted position (and extra bit if needed) as a label
-        label = self.format_pos(annot, outlines) + (" " + extra if extra else "") + ":"
+        label = self.format_pos(annot, outlines) + \
+            (" " + extra if extra else "") + ":"
 
         # If we have short (single-paragraph, few words) text with a short or no
         # comment, and the text contains no embedded full stops or quotes, then
@@ -115,9 +132,9 @@ class MarkdownPrinter(Printer):
         # a single paragraph.
         if (self.condense
             and len(text) == 1
-            and len(text[0].split()) <= 10 # words
+            and len(text[0].split()) <= 10  # words
             and all([x not in text[0] for x in ['"', '. ']])
-            and (not comment or len(comment) == 1)):
+                and (not comment or len(comment) == 1)):
             msg = label + ' "' + text[0] + '"'
             if comment:
                 msg = msg + ' -- ' + comment[0]
@@ -136,7 +153,11 @@ class MarkdownPrinter(Printer):
             quotepos = (1, len(text)) if text else None
             return self.format_bullet(msgparas, quotepos) + "\n"
 
-    def __call__(self, annots: typing.Sequence[Annotation], outlines: typing.Sequence[Outline]) -> None:
+    def __call__(
+            self,
+            annots: typing.Sequence[Annotation],
+            outlines: typing.Sequence[Outline]) -> None:
+
         for a in annots:
             print(self.format_annot(a, outlines, a.tagname), file=self.output)
 
@@ -147,9 +168,13 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
 
     def __init__(self, args: argparse.Namespace):
         super().__init__(args)
-        self.sections = args.sections # controls the order of sections output
+        self.sections = args.sections  # controls the order of sections output
 
-    def __call__(self, annots: typing.Sequence[Annotation], outlines: typing.Sequence[Outline]) -> None:
+    def __call__(
+            self,
+            annots: typing.Sequence[Annotation],
+            outlines: typing.Sequence[Outline]) -> None:
+
         self._printheader_called = False
 
         def printheader(name: str) -> None:
@@ -160,8 +185,10 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
                 self._printheader_called = True
             print("## " + name + "\n", file=self.output)
 
-        highlights = [a for a in annots if a.tagname == 'Highlight' and a.contents is None]
-        comments = [a for a in annots if a.tagname not in self.ANNOT_NITS and a.contents]
+        highlights = [a for a in annots
+                      if a.tagname == 'Highlight' and a.contents is None]
+        comments = [a for a in annots
+                    if a.tagname not in self.ANNOT_NITS and a.contents]
         nits = [a for a in annots if a.tagname in self.ANNOT_NITS]
 
         for secname in self.sections:

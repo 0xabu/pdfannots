@@ -4,7 +4,9 @@ Extracts annotations from a PDF file in markdown format for use in reviewing.
 
 __version__ = '0.1'
 
-import sys, io, logging
+import sys
+import io
+import logging
 import typing
 
 from .types import Box, Pos, Page, Outline, Annotation
@@ -23,9 +25,15 @@ import pdfminer.utils
 
 pdfminer.settings.STRICT = False
 
-ANNOT_SUBTYPES = frozenset({'Text', 'Highlight', 'Squiggly', 'StrikeOut', 'Underline'})
+ANNOT_SUBTYPES = frozenset(
+    {'Text', 'Highlight', 'Squiggly', 'StrikeOut', 'Underline'})
 
-def _getannots(pdfannots: typing.Iterable[typing.Any], page: Page) -> typing.List[Annotation]:
+
+def _getannots(
+    pdfannots: typing.Iterable[typing.Any],
+    page: Page
+) -> typing.List[Annotation]:
+
     annots = []
     for pa in pdfannots:
         subtype = pa.get('Subtype')
@@ -55,7 +63,8 @@ def _getannots(pdfannots: typing.Iterable[typing.Any], page: Page) -> typing.Lis
             createds = pdfminer.utils.decode_text(createds)
             created = utils.decode_datetime(createds)
 
-        a = Annotation(page, subtype.name, coords, rect, contents, author=author, created=created)
+        a = Annotation(page, subtype.name, coords, rect,
+                       contents, author=author, created=created)
         annots.append(a)
 
     return annots
@@ -72,10 +81,11 @@ def _resolve_dest(doc: PDFDocument, dest: typing.Any) -> typing.Any:
 
 
 def _get_outlines(
-        doc: PDFDocument,
-        pageslist: typing.List[Page],
-        pagesdict: typing.Mapping[typing.Any, Page]
-        ) -> typing.List[Outline]:
+    doc: PDFDocument,
+    pageslist: typing.List[Page],
+    pagesdict: typing.Mapping[typing.Any, Page]
+) -> typing.List[Outline]:
+
     result = []
     for (_, title, destname, actionref, _) in doc.get_outlines():
         if destname is None and actionref:
@@ -98,7 +108,8 @@ def _get_outlines(
             elif isinstance(pageref, pdftypes.PDFObjRef):
                 page = pagesdict[pageref.objid]
             else:
-                sys.stderr.write('Warning: unsupported pageref in outline: %s\n' % pageref)
+                sys.stderr.write(
+                    'Warning: unsupported pageref in outline: %s\n' % pageref)
 
             if page:
                 pos = Pos(page, targetx, targety)
@@ -106,14 +117,23 @@ def _get_outlines(
     return result
 
 
-class _RectExtractor(TextConverter): # type: ignore # pdfminer.TextConverter lacks types
+class _RectExtractor(TextConverter):  # type:ignore
+    # (pdfminer lacks type annotations)
+
     annots: typing.Set[Annotation]
     _lasthit: typing.FrozenSet[Annotation]
     _curline: typing.Set[Annotation]
 
-    def __init__(self, rsrcmgr:PDFResourceManager, codec:str ='utf-8', pageno:int =1, laparams:typing.Optional[LAParams] =None):
+    def __init__(
+            self,
+            rsrcmgr: PDFResourceManager,
+            codec: str = 'utf-8',
+            pageno: int = 1,
+            laparams: typing.Optional[LAParams] = None):
+
         dummy = io.StringIO()
-        TextConverter.__init__(self, rsrcmgr, outfp=dummy, codec=codec, pageno=pageno, laparams=laparams)
+        TextConverter.__init__(self, rsrcmgr, outfp=dummy,
+                               codec=codec, pageno=pageno, laparams=laparams)
         self.annots = set()
 
     def setannots(self, annots: typing.Sequence[Annotation]) -> None:
@@ -126,7 +146,9 @@ class _RectExtractor(TextConverter): # type: ignore # pdfminer.TextConverter lac
         self.render(ltpage)
 
     def testboxes(self, item: LTComponent) -> typing.AbstractSet[Annotation]:
-        hits = frozenset({a for a in self.annots if any({self.boxhit(item, b) for b in a.boxes})})
+        hits = frozenset(
+            {a for a in self.annots if any(
+                {self.boxhit(item, b) for b in a.boxes})})
         self._lasthit = hits
         self._curline.update(hits)
         return hits
@@ -146,8 +168,11 @@ class _RectExtractor(TextConverter): # type: ignore # pdfminer.TextConverter lac
         assert overlap_area <= item_area
 
         if overlap_area != 0:
-            logging.debug("Box hit: '%s' %f-%f,%f-%f in %f-%f,%f-%f %2.0f%%",
-                item.get_text(), item.x0, item.x1, item.y0, item.y1, x0, x1, y0, y1,
+            logging.debug(
+                "Box hit: '%s' %f-%f,%f-%f in %f-%f,%f-%f %2.0f%%",
+                item.get_text(),
+                item.x0, item.x1, item.y0, item.y1,
+                x0, x1, y0, y1,
                 100 * overlap_area / item_area)
 
         return (item_area != 0) and overlap_area >= (0.5 * item_area)
@@ -191,8 +216,12 @@ class _RectExtractor(TextConverter): # type: ignore # pdfminer.TextConverter lac
                     a.capture(text)
 
 
-def process_file(fh: typing.BinaryIO, columns_per_page: int, emit_progress:bool =False
-                ) -> typing.Tuple[typing.List[Annotation], typing.List[Outline]]:
+def process_file(
+    fh: typing.BinaryIO,
+    columns_per_page: int,
+    emit_progress: bool = False
+) -> typing.Tuple[typing.List[Annotation], typing.List[Outline]]:
+
     rsrcmgr = PDFResourceManager()
     laparams = LAParams()
     device = _RectExtractor(rsrcmgr, laparams=laparams)
@@ -200,8 +229,8 @@ def process_file(fh: typing.BinaryIO, columns_per_page: int, emit_progress:bool 
     parser = PDFParser(fh)
     doc = PDFDocument(parser)
 
-    pageslist = [] # pages in page order
-    pagesdict = {} # map from PDF page object ID to Page object
+    pageslist = []  # pages in page order
+    pagesdict = {}  # map from PDF page object ID to Page object
     allannots = []
 
     for (pageno, pdfpage) in enumerate(PDFPage.create_pages(doc)):
@@ -211,7 +240,8 @@ def process_file(fh: typing.BinaryIO, columns_per_page: int, emit_progress:bool 
         if pdfpage.annots:
             # emit progress indicator
             if emit_progress:
-                sys.stderr.write((" " if pageno > 0 else "") + "%d" % (pageno + 1))
+                sys.stderr.write(
+                    (" " if pageno > 0 else "") + "%d" % (pageno + 1))
                 sys.stderr.flush()
 
             pdfannots = []
@@ -235,7 +265,8 @@ def process_file(fh: typing.BinaryIO, columns_per_page: int, emit_progress:bool 
         outlines = _get_outlines(doc, pageslist, pagesdict)
     except PDFNoOutlines:
         if emit_progress:
-            sys.stderr.write("Document doesn't include outlines (\"bookmarks\")\n")
+            sys.stderr.write(
+                "Document doesn't include outlines (\"bookmarks\")\n")
     except Exception as ex:
         sys.stderr.write("Warning: failed to retrieve outlines: %s\n" % ex)
 

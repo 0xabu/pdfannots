@@ -4,11 +4,12 @@ import typing
 
 from ..types import Outline, Annotation
 
+
 class Printer(abc.ABC):
     """
     Base class for pretty-printers.
     """
-    output: typing.TextIO # File handle for output
+    output: typing.TextIO  # File handle for output
 
     def __init__(self, args: argparse.Namespace):
         """
@@ -17,7 +18,11 @@ class Printer(abc.ABC):
         self.output = args.output
 
     @abc.abstractmethod
-    def __call__(self, annots: typing.Sequence[Annotation], outlines: typing.Sequence[Outline]) -> None:
+    def __call__(
+        self,
+        annots: typing.Sequence[Annotation],
+        outlines: typing.Sequence[Outline]
+    ) -> None:
         """
         Pretty-print the extracted annotations.
         """
