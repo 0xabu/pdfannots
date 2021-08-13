@@ -12,7 +12,7 @@ import pdfannots.utils as utils
 
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
-from pdfminer.layout import LAParams, LTContainer, LTAnno, LTChar, LTPage, LTTextBox, LTItem
+from pdfminer.layout import LAParams, LTContainer, LTAnno, LTChar, LTPage, LTTextBox, LTItem, LTComponent
 from pdfminer.converter import TextConverter
 from pdfminer.pdfparser import PDFParser
 from pdfminer.pdfdocument import PDFDocument, PDFNoOutlines
@@ -71,7 +71,11 @@ def _resolve_dest(doc: PDFDocument, dest: typing.Any) -> typing.Any:
     return dest
 
 
-def _get_outlines(doc: PDFDocument, pageslist: typing.List[Page], pagesdict: typing.Mapping[typing.Any, Page]):
+def _get_outlines(
+        doc: PDFDocument,
+        pageslist: typing.List[Page],
+        pagesdict: typing.Mapping[typing.Any, Page]
+        ) -> typing.List[Outline]:
     result = []
     for (_, title, destname, actionref, _) in doc.get_outlines():
         if destname is None and actionref:
@@ -102,12 +106,12 @@ def _get_outlines(doc: PDFDocument, pageslist: typing.List[Page], pagesdict: typ
     return result
 
 
-class _RectExtractor(TextConverter):
+class _RectExtractor(TextConverter): # type: ignore # pdfminer.TextConverter lacks types
     annots: typing.Set[Annotation]
     _lasthit: typing.FrozenSet[Annotation]
     _curline: typing.Set[Annotation]
 
-    def __init__(self, rsrcmgr, codec='utf-8', pageno=1, laparams=None):
+    def __init__(self, rsrcmgr:PDFResourceManager, codec:str ='utf-8', pageno:int =1, laparams:typing.Optional[LAParams] =None):
         dummy = io.StringIO()
         TextConverter.__init__(self, rsrcmgr, outfp=dummy, codec=codec, pageno=pageno, laparams=laparams)
         self.annots = set()
@@ -121,14 +125,14 @@ class _RectExtractor(TextConverter):
         self._curline = set()
         self.render(ltpage)
 
-    def testboxes(self, item: LTItem) -> typing.AbstractSet[Annotation]:
+    def testboxes(self, item: LTComponent) -> typing.AbstractSet[Annotation]:
         hits = frozenset({a for a in self.annots if any({self.boxhit(item, b) for b in a.boxes})})
         self._lasthit = hits
         self._curline.update(hits)
         return hits
 
     @staticmethod
-    def boxhit(item, box: Box) -> bool:
+    def boxhit(item: LTComponent, box: Box) -> bool:
         (x0, y0, x1, y1) = box
         assert item.x0 <= item.x1 and item.y0 <= item.y1
         assert x0 <= x1 and y0 <= y1
@@ -137,8 +141,8 @@ class _RectExtractor(TextConverter):
         # http://math.stackexchange.com/questions/99565/simplest-way-to-calculate-the-intersect-area-of-two-rectangles
         x_overlap = max(0, min(item.x1, x1) - max(item.x0, x0))
         y_overlap = max(0, min(item.y1, y1) - max(item.y0, y0))
-        overlap_area = x_overlap * y_overlap
-        item_area = (item.x1 - item.x0) * (item.y1 - item.y0)
+        overlap_area = float(x_overlap) * float(y_overlap)
+        item_area = float(item.x1 - item.x0) * float(item.y1 - item.y0)
         assert overlap_area <= item_area
 
         if overlap_area != 0:
@@ -146,10 +150,7 @@ class _RectExtractor(TextConverter):
                 item.get_text(), item.x0, item.x1, item.y0, item.y1, x0, x1, y0, y1,
                 100 * overlap_area / item_area)
 
-        if item_area == 0:
-            return False
-        else:
-            return overlap_area >= 0.5 * item_area
+        return (item_area != 0) and overlap_area >= (0.5 * item_area)
 
     # "broadcast" newlines to _all_ annotations that received any text on the
     # current line, in case they see more text on the next line, even if the
@@ -190,7 +191,7 @@ class _RectExtractor(TextConverter):
                     a.capture(text)
 
 
-def process_file(fh: typing.BinaryIO, columns_per_page: int, emit_progress=False
+def process_file(fh: typing.BinaryIO, columns_per_page: int, emit_progress:bool =False
                 ) -> typing.Tuple[typing.List[Annotation], typing.List[Outline]]:
     rsrcmgr = PDFResourceManager()
     laparams = LAParams()

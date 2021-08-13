@@ -51,12 +51,16 @@ class MarkdownPrinter(Printer):
             return "Page %d" % (annot.page.pageno + 1)
 
     # format a Markdown bullet, wrapped as desired
-    def format_bullet(self, paras: typing.List[str], quotepos=None, quotelen=None) -> str:
-        # quotepos/quotelen specify the first paragraph (if any) to be formatted
-        # as a block-quote, and the length of the blockquote in paragraphs
-        if quotepos:
-            assert quotepos > 0
-            assert quotelen > 0
+    def format_bullet(
+            self,
+            paras: typing.List[str],
+            quote: typing.Optional[typing.Tuple[int, int]] =None
+            ) -> str:
+
+        if quote is not None:
+            (quotepos, quotelen) = quote
+            assert quotepos > 0 # first paragraph to format as a block-quote
+            assert quotelen > 0 # length of the blockquote in paragraphs
             assert quotepos + quotelen <= len(paras)
 
         # emit the first paragraph with the bullet
@@ -86,7 +90,13 @@ class MarkdownPrinter(Printer):
 
         return ret
 
-    def format_annot(self, annot: Annotation, outlines: typing.Sequence[Outline], extra=None) -> str:
+    def format_annot(
+            self,
+            annot: Annotation,
+            outlines: typing.Sequence[Outline],
+            extra: typing.Optional[str] =None
+            ) -> str:
+
         # capture item text and contents (i.e. the comment), and split each into paragraphs
         rawtext = annot.gettext()
         text = [l for l in rawtext.strip().splitlines() if l] if rawtext else []
@@ -123,11 +133,10 @@ class MarkdownPrinter(Printer):
         # any) into subsequent paragraphs.
         else:
             msgparas = [label] + text + comment
-            quotepos = 1 if text else None
-            quotelen = len(text) if text else None
-            return self.format_bullet(msgparas, quotepos, quotelen) + "\n"
+            quotepos = (1, len(text)) if text else None
+            return self.format_bullet(msgparas, quotepos) + "\n"
 
-    def __call__(self, annots: typing.Sequence[Annotation], outlines: typing.Sequence[Outline]):
+    def __call__(self, annots: typing.Sequence[Annotation], outlines: typing.Sequence[Outline]) -> None:
         for a in annots:
             print(self.format_annot(a, outlines, a.tagname), file=self.output)
 
@@ -136,14 +145,14 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
     ANNOT_NITS = frozenset({'Squiggly', 'StrikeOut', 'Underline'})
     ALL_SECTIONS = ["highlights", "comments", "nits"]
 
-    def __init__(self, args):
+    def __init__(self, args: argparse.Namespace):
         super().__init__(args)
         self.sections = args.sections # controls the order of sections output
 
-    def __call__(self, annots: typing.Sequence[Annotation], outlines: typing.Sequence[Outline]):
+    def __call__(self, annots: typing.Sequence[Annotation], outlines: typing.Sequence[Outline]) -> None:
         self._printheader_called = False
 
-        def printheader(name):
+        def printheader(name: str) -> None:
             # emit blank separator line if needed
             if self._printheader_called:
                 print("", file=self.output)

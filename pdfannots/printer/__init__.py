@@ -17,7 +17,7 @@ class Printer(abc.ABC):
         self.output = args.output
 
     @abc.abstractmethod
-    def __call__(self, annots: typing.Sequence[Annotation], outlines: typing.Sequence[Outline]):
+    def __call__(self, annots: typing.Sequence[Annotation], outlines: typing.Sequence[Outline]) -> None:
         """
         Pretty-print the extracted annotations.
         """

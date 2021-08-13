@@ -1,3 +1,4 @@
+import datetime
 import typing
 from .utils import cleanup_text
 
@@ -16,10 +17,14 @@ class Page:
         self.ncolumns = ncolumns
         self.annots = []
 
-    def __eq__(self, other):
+    def __eq__(self, other: typing.Any) -> bool:
+        if not isinstance(other, Page):
+            return NotImplemented
         return self.pageno == other.pageno
 
-    def __lt__(self, other):
+    def __lt__(self, other: typing.Any) -> bool:
+        if not isinstance(other, Page):
+            return NotImplemented
         return self.pageno < other.pageno
 
 
@@ -29,7 +34,9 @@ class Pos:
         self.x = x
         self.y = y
 
-    def __lt__(self, other):
+    def __lt__(self, other: typing.Any) -> bool:
+        if not isinstance(other, Pos):
+            return NotImplemented
         if self.page < other.page:
             return True
         elif self.page == other.page:
@@ -60,16 +67,18 @@ class Pos:
 
 
 class Annotation:
-    page: Page
-    tagname: str
     contents: typing.Optional[str]
-    rect: typing.Optional[Box]
-    author: typing.Optional[str]
-    created: typing.Optional[str]
     boxes: typing.List[Box]
     text: str
 
-    def __init__(self, page, tagname, coords=None, rect=None, contents=None, author=None, created=None):
+    def __init__(self,
+                 page: Page,
+                 tagname: str,
+                 coords:typing.Optional[typing.Sequence[float]] =None,
+                 rect:typing.Optional[Box] =None,
+                 contents:typing.Optional[str] =None,
+                 author:typing.Optional[str] =None,
+                 created:typing.Optional[datetime.datetime] =None):
         self.page = page
         self.tagname = tagname
         if contents == '':
@@ -130,8 +139,13 @@ class Annotation:
         return Pos(self.page, min(x0, x1), max(y0, y1))
 
     # custom < operator for sorting
-    def __lt__(self, other):
-        return self.getstartpos() < other.getstartpos()
+    def __lt__(self, other: typing.Any) -> bool:
+        if isinstance(other, Annotation):
+            mypos = self.getstartpos()
+            otherpos = other.getstartpos()
+            if mypos is not None and otherpos is not None:
+                return mypos < otherpos
+        return NotImplemented
 
 
 class Outline:

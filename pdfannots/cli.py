@@ -37,7 +37,7 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def main():
+def main() -> None:
     args = parse_args()
 
     # construct Printer instance
