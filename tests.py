@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 
 from datetime import datetime, timedelta, timezone
-import unittest, pathlib
-import pdfannots, pdfannots.utils
+import unittest
+import pathlib
+import pdfannots
+import pdfannots.utils
+
 
 class ExtractionTestBase(unittest.TestCase):
     columns_per_page = 1
@@ -14,6 +17,7 @@ class ExtractionTestBase(unittest.TestCase):
             self.annots = annots
             self.outlines = outlines
 
+
 class ExtractionTests(ExtractionTestBase):
     filename = 'hotos17.pdf'
     columns_per_page = 2
@@ -22,17 +26,24 @@ class ExtractionTests(ExtractionTestBase):
         EXPECTED = [
             (0, 'Squiggly', None, 'recent Intel CPUs have introduced'),
             (0, 'Text', 'This is a note with no text attached.', None),
-            (1, 'Highlight', None, 'TSX launched with "Haswell" in 2013 but was later disabled due to a bug. "Broadwell" CPUs with the bug fix shipped in late 2014.'),
-            (1, 'Highlight', 'This is lower in column 1', 'user-mode access to FS/GS registers, and TLB tags for non-VM address spaces'),
-            (1, 'Highlight', 'This is at the top of column two', 'The jump is due to extensions introduced with the "Skylake" microarchitecture'),
-            (3, 'Squiggly', 'This is a nit.', 'Control transfer in x86 is already very complex'),
-            (3, 'Underline', 'This is a different nit', 'Besides modifying semantics of all indirect control transfers'),
+            (1, 'Highlight', None,
+             'TSX launched with "Haswell" in 2013 but was later disabled due to a bug. "Broadwell" CPUs with the bug fix shipped in late 2014.'),
+            (1, 'Highlight', 'This is lower in column 1',
+             'user-mode access to FS/GS registers, and TLB tags for non-VM address spaces'),
+            (1, 'Highlight', 'This is at the top of column two',
+             'The jump is due to extensions introduced with the "Skylake" microarchitecture'),
+            (3, 'Squiggly', 'This is a nit.',
+             'Control transfer in x86 is already very complex'),
+            (3, 'Underline', 'This is a different nit',
+             'Besides modifying semantics of all indirect control transfers'),
             (3, 'StrikeOut', None, 'While we may disagree with some of the design choices,')]
 
         self.assertEqual(len(self.annots), len(EXPECTED))
         for a, expected in zip(self.annots, EXPECTED):
-            self.assertEqual((a.page.pageno, a.tagname, a.contents, a.gettext()), expected)
-        self.assertEqual(self.annots[0].created, datetime(2019, 1 , 19, 21, 29, 42, tzinfo=timezone(-timedelta(hours=8))))
+            self.assertEqual(
+                (a.page.pageno, a.tagname, a.contents, a.gettext()), expected)
+        self.assertEqual(self.annots[0].created, datetime(
+            2019, 1, 19, 21, 29, 42, tzinfo=timezone(-timedelta(hours=8))))
 
     def test_outlines(self):
         EXPECTED = [
@@ -47,17 +58,21 @@ class ExtractionTests(ExtractionTestBase):
         for o, expected in zip(self.outlines, EXPECTED):
             self.assertEqual(o.title, expected)
 
+
 class UnitTests(unittest.TestCase):
     def test_decode_datetime(self):
         datas = [
-            ("D:123456"               , None),  # defensive on bad datetimes
-            ("D:20190119212926-08'00'", datetime(2019, 1 , 19, 21, 29, 26, tzinfo=timezone(-timedelta(hours=8)))),
-            ("20200102030405Z0000"    , datetime(2020, 1 , 2 , 3 , 4 , 5 , tzinfo=timezone.utc)),
-            ("D:20101112191817"       , datetime(2010, 11, 12, 19, 18, 17)),
+            ("D:123456", None),  # defensive on bad datetimes
+            ("D:20190119212926-08'00'",
+             datetime(2019, 1, 19, 21, 29, 26, tzinfo=timezone(-timedelta(hours=8)))),
+            ("20200102030405Z0000",
+             datetime(2020, 1, 2, 3, 4, 5, tzinfo=timezone.utc)),
+            ("D:20101112191817", datetime(2010, 11, 12, 19, 18, 17)),
         ]
         for dts, expected in datas:
             dt = pdfannots.utils.decode_datetime(dts)
             self.assertEqual(dt, expected)
+
 
 class Issue9(ExtractionTestBase):
     filename = 'issue9.pdf'
@@ -67,6 +82,7 @@ class Issue9(ExtractionTestBase):
         a = self.annots[0]
         self.assertEqual(a.gettext(), 'World')
 
+
 class Issue13(ExtractionTestBase):
     filename = 'issue13.pdf'
 
@@ -74,6 +90,7 @@ class Issue13(ExtractionTestBase):
         self.assertEqual(len(self.annots), 1)
         a = self.annots[0]
         self.assertEqual(a.gettext(), 'This is a sample statement.')
+
 
 class Pr24(ExtractionTestBase):
     filename = 'pr24.pdf'
@@ -90,6 +107,7 @@ class Pr24(ExtractionTestBase):
         self.assertEqual(len(self.annots), len(EXPECTED))
         for a, expected in zip(self.annots, EXPECTED):
             self.assertEqual((a.tagname, a.contents, a.gettext()), expected)
+
 
 if __name__ == "__main__":
     unittest.main()

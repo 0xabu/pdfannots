@@ -26,9 +26,10 @@ def parse_args() -> argparse.Namespace:
     g.add_argument("-s", "--sections", metavar="SEC", nargs="*",
                    choices=GroupedMarkdownPrinter.ALL_SECTIONS,
                    default=GroupedMarkdownPrinter.ALL_SECTIONS,
-                   help=("sections to emit (default: %s)" % ', '.join(GroupedMarkdownPrinter.ALL_SECTIONS)))
+                   help=("sections to emit (default: %s)" %
+                         ', '.join(GroupedMarkdownPrinter.ALL_SECTIONS)))
     g.add_argument("--no-condense", dest="condense", default=True, action="store_false",
-                   help="do not use condensed format, emit annotations as a blockquote regardless of length")
+                   help="emit annotations as a blockquote regardless of length")
     g.add_argument("--no-group", dest="group", default=True, action="store_false",
                    help="emit annotations in order, don't group into sections")
     g.add_argument("--print-filename", dest="printfilename", default=False, action="store_true",

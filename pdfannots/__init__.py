@@ -14,7 +14,8 @@ import pdfannots.utils as utils
 
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
-from pdfminer.layout import LAParams, LTContainer, LTAnno, LTChar, LTPage, LTTextBox, LTItem, LTComponent
+from pdfminer.layout import (
+    LAParams, LTContainer, LTAnno, LTChar, LTPage, LTTextBox, LTItem, LTComponent)
 from pdfminer.converter import TextConverter
 from pdfminer.pdfparser import PDFParser
 from pdfminer.pdfdocument import PDFDocument, PDFNoOutlines
