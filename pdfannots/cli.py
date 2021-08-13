@@ -4,7 +4,7 @@ import sys
 from . import __doc__, __version__, process_file
 from .printer.markdown import MarkdownPrinter, GroupedMarkdownPrinter
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(prog='pdfannots', description=__doc__)
 
     p.add_argument('--version', action='version', version='%(prog)s ' + __version__)
@@ -21,10 +21,10 @@ def parse_args():
                    help="number of columns per page in the document (default: 2)")
 
     g = p.add_argument_group('Options controlling output format')
-    allsects = ["highlights", "comments", "nits"]
     g.add_argument("-s", "--sections", metavar="SEC", nargs="*",
-                   choices=allsects, default=allsects,
-                   help=("sections to emit (default: %s)" % ', '.join(allsects)))
+                   choices=GroupedMarkdownPrinter.ALL_SECTIONS,
+                   default=GroupedMarkdownPrinter.ALL_SECTIONS,
+                   help=("sections to emit (default: %s)" % ', '.join(GroupedMarkdownPrinter.ALL_SECTIONS)))
     g.add_argument("--no-condense", dest="condense", default=True, action="store_false",
                    help="do not use condensed format, emit annotations as a blockquote regardless of length")
     g.add_argument("--no-group", dest="group", default=True, action="store_false",
@@ -48,7 +48,7 @@ def main():
         (annots, outlines) = process_file(file, args.cols, args.progress)
 
         if args.printfilename and annots:
-            print("# File: '%s'\n" % file.name)
+            print("# File: '%s'\n" % file.name, file=args.output)
 
         printer(annots, outlines)
 

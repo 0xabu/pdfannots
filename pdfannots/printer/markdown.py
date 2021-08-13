@@ -1,5 +1,7 @@
+import argparse
 import textwrap
 import typing
+
 from . import Printer
 from ..types import Pos, Outline, Annotation
 
@@ -8,10 +10,10 @@ class MarkdownPrinter(Printer):
     BULLET_INDENT2 = "   "
     QUOTE_INDENT = BULLET_INDENT2 + "> "
 
-    def __init__(self, args):
+    def __init__(self, args: argparse.Namespace):
+        super().__init__(args)
         self.wrapcol = args.wrap      # Specifies the column at which output is word-wrapped
         self.condense = args.condense # Permit use of the condensed format
-        self.outfile = args.output    # File handle for output
 
         if self.wrapcol:
             # for bullets, we need two text wrappers: one for the leading bullet on the first paragraph, one without
@@ -127,16 +129,16 @@ class MarkdownPrinter(Printer):
 
     def __call__(self, annots: typing.Sequence[Annotation], outlines: typing.Sequence[Outline]):
         for a in annots:
-            print(self.format_annot(a, outlines, a.tagname), file=self.outfile)
+            print(self.format_annot(a, outlines, a.tagname), file=self.output)
 
 
 class GroupedMarkdownPrinter(MarkdownPrinter):
     ANNOT_NITS = frozenset({'Squiggly', 'StrikeOut', 'Underline'})
+    ALL_SECTIONS = ["highlights", "comments", "nits"]
 
     def __init__(self, args):
         super().__init__(args)
         self.sections = args.sections # controls the order of sections output
-                                      # e.g.: ["highlights", "comments", "nits"]
 
     def __call__(self, annots: typing.Sequence[Annotation], outlines: typing.Sequence[Outline]):
         self._printheader_called = False
@@ -144,10 +146,10 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
         def printheader(name):
             # emit blank separator line if needed
             if self._printheader_called:
-                print("", file=self.outfile)
+                print("", file=self.output)
             else:
                 self._printheader_called = True
-            print("## " + name + "\n", file=self.outfile)
+            print("## " + name + "\n", file=self.output)
 
         highlights = [a for a in annots if a.tagname == 'Highlight' and a.contents is None]
         comments = [a for a in annots if a.tagname not in self.ANNOT_NITS and a.contents]
@@ -157,15 +159,15 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
             if highlights and secname == 'highlights':
                 printheader("Highlights")
                 for a in highlights:
-                    print(self.format_annot(a, outlines), file=self.outfile)
+                    print(self.format_annot(a, outlines), file=self.output)
 
             if comments and secname == 'comments':
                 printheader("Detailed comments")
                 for a in comments:
-                    print(self.format_annot(a, outlines), file=self.outfile)
+                    print(self.format_annot(a, outlines), file=self.output)
 
             if nits and secname == 'nits':
                 printheader("Nits")
                 for a in nits:
                     extra = "delete" if a.tagname == 'StrikeOut' else None
-                    print(self.format_annot(a, outlines, extra), file=self.outfile)
+                    print(self.format_annot(a, outlines, extra), file=self.output)
