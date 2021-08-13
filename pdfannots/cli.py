@@ -51,6 +51,7 @@ def main() -> None:
     printer = (GroupedMarkdownPrinter if args.group else MarkdownPrinter)(args)
 
     for file in args.input:
-        (annots, outlines) = process_file(file, args.cols, args.progress)
+        (annots, outlines) = process_file(
+            file, args.cols, sys.stderr if args.progress else None)
         for line in printer(file.name, annots, outlines):
             args.output.write(line)

@@ -4,7 +4,6 @@ Extracts annotations from a PDF file in markdown format for use in reviewing.
 
 __version__ = '0.1'
 
-import sys
 import io
 import logging
 import typing
@@ -221,7 +220,7 @@ class _RectExtractor(TextConverter):  # type:ignore
 def process_file(
     fh: typing.BinaryIO,
     columns_per_page: int,
-    emit_progress: bool = False
+    emit_progress_to: typing.Optional[typing.TextIO] = None
 ) -> typing.Tuple[typing.List[Annotation], typing.List[Outline]]:
 
     rsrcmgr = PDFResourceManager()
@@ -235,16 +234,21 @@ def process_file(
     pagesdict = {}  # map from PDF page object ID to Page object
     allannots = []
 
+    def emit_progress(msg: str) -> None:
+        if emit_progress_to is None:
+            pass
+        else:
+            emit_progress_to.write(msg)
+            emit_progress_to.flush()
+
+    emit_progress(fh.name)
+
     for (pageno, pdfpage) in enumerate(PDFPage.create_pages(doc)):
         page = Page(pageno, pdfpage.mediabox, columns_per_page)
         pageslist.append(page)
         pagesdict[pdfpage.pageid] = page
         if pdfpage.annots:
-            # emit progress indicator
-            if emit_progress:
-                sys.stderr.write(
-                    (" " if pageno > 0 else "") + "%d" % (pageno + 1))
-                sys.stderr.flush()
+            emit_progress(" %d" % (pageno + 1))
 
             pdfannots = []
             for a in pdftypes.resolve1(pdfpage.annots):
@@ -259,8 +263,7 @@ def process_file(
             interpreter.process_page(pdfpage)
             allannots.extend(page.annots)
 
-    if emit_progress:
-        sys.stderr.write("\n")
+    emit_progress("\n")
 
     outlines = []
     try:
