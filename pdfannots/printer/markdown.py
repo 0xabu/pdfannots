@@ -138,28 +138,29 @@ class MarkdownPrinter(Printer):
             msg = label + ' "' + text[0] + '"'
             if comment:
                 msg = msg + ' -- ' + comment[0]
-            return self.format_bullet([msg]) + "\n"
+            return self.format_bullet([msg]) + "\n\n"
 
         # If there is no text and a single-paragraph comment, it also goes on
         # one line.
         elif comment and not text and len(comment) == 1:
             msg = label + " " + comment[0]
-            return self.format_bullet([msg]) + "\n"
+            return self.format_bullet([msg]) + "\n\n"
 
         # Otherwise, text (if any) turns into a blockquote, and the comment (if
         # any) into subsequent paragraphs.
         else:
             msgparas = [label] + text + comment
             quotepos = (1, len(text)) if text else None
-            return self.format_bullet(msgparas, quotepos) + "\n"
+            return self.format_bullet(msgparas, quotepos) + "\n\n"
 
     def __call__(
             self,
             annots: typing.Sequence[Annotation],
-            outlines: typing.Sequence[Outline]) -> None:
+            outlines: typing.Sequence[Outline]
+    ) -> typing.Iterator[str]:
 
         for a in annots:
-            print(self.format_annot(a, outlines, a.tagname), file=self.output)
+            yield self.format_annot(a, outlines, a.tagname)
 
 
 class GroupedMarkdownPrinter(MarkdownPrinter):
@@ -173,17 +174,16 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
     def __call__(
             self,
             annots: typing.Sequence[Annotation],
-            outlines: typing.Sequence[Outline]) -> None:
+            outlines: typing.Sequence[Outline]
+    ) -> typing.Iterator[str]:
 
-        self._printheader_called = False
+        self._fmt_header_called = False
 
-        def printheader(name: str) -> None:
+        def fmt_header(name: str) -> str:
             # emit blank separator line if needed
-            if self._printheader_called:
-                print("", file=self.output)
-            else:
-                self._printheader_called = True
-            print("## " + name + "\n", file=self.output)
+            prefix = '\n' if self._fmt_header_called else ''
+            self._fmt_header_called = True
+            return prefix + "## " + name + "\n\n"
 
         highlights = [a for a in annots
                       if a.tagname == 'Highlight' and a.contents is None]
@@ -193,17 +193,17 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
 
         for secname in self.sections:
             if highlights and secname == 'highlights':
-                printheader("Highlights")
+                yield fmt_header("Highlights")
                 for a in highlights:
-                    print(self.format_annot(a, outlines), file=self.output)
+                    yield self.format_annot(a, outlines)
 
             if comments and secname == 'comments':
-                printheader("Detailed comments")
+                yield fmt_header("Detailed comments")
                 for a in comments:
-                    print(self.format_annot(a, outlines), file=self.output)
+                    yield self.format_annot(a, outlines)
 
             if nits and secname == 'nits':
-                printheader("Nits")
+                yield fmt_header("Nits")
                 for a in nits:
                     extra = "delete" if a.tagname == 'StrikeOut' else None
-                    print(self.format_annot(a, outlines, extra), file=self.output)
+                    yield self.format_annot(a, outlines, extra)
