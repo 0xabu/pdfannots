@@ -1,4 +1,5 @@
 import argparse
+import logging
 import sys
 
 from . import __doc__, __version__, process_file
@@ -16,7 +17,7 @@ def parse_args() -> argparse.Namespace:
 
     g = p.add_argument_group('Basic options')
     g.add_argument("-p", "--progress", default=False, action="store_true",
-                   help="emit progress information")
+                   help="emit progress information to stderr")
     g.add_argument("-o", metavar="OUTFILE", type=argparse.FileType("w"), dest="output",
                    default=sys.stdout, help="output file (default is stdout)")
     g.add_argument("-n", "--cols", default=2, type=int, metavar="COLS", dest="cols",
@@ -42,6 +43,8 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    logging.basicConfig(format='%(levelname)s: %(message)s',
+                        level=logging.WARNING)
 
     # construct Printer instance
     # TODO: replace with appropriate factory logic

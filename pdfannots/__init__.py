@@ -26,6 +26,8 @@ import pdfminer.utils
 
 pdfminer.settings.STRICT = False
 
+logger = logging.getLogger(__name__)
+
 ANNOT_SUBTYPES = frozenset(
     {'Text', 'Highlight', 'Squiggly', 'StrikeOut', 'Underline'})
 
@@ -109,8 +111,7 @@ def _get_outlines(
             elif isinstance(pageref, pdftypes.PDFObjRef):
                 page = pagesdict[pageref.objid]
             else:
-                sys.stderr.write(
-                    'Warning: unsupported pageref in outline: %s\n' % pageref)
+                logger.warning("Unsupported pageref in outline: %s", pageref)
 
             if page:
                 pos = Pos(page, targetx, targety)
@@ -169,7 +170,7 @@ class _RectExtractor(TextConverter):  # type:ignore
         assert overlap_area <= item_area
 
         if overlap_area != 0:
-            logging.debug(
+            logger.debug(
                 "Box hit: '%s' %f-%f,%f-%f in %f-%f,%f-%f %2.0f%%",
                 item.get_text(),
                 item.x0, item.x1, item.y0, item.y1,
@@ -250,7 +251,7 @@ def process_file(
                 if isinstance(a, pdftypes.PDFObjRef):
                     pdfannots.append(a.resolve())
                 else:
-                    sys.stderr.write('Warning: unknown annotation: %s\n' % a)
+                    logger.warning("Unknown annotation: %s", a)
 
             page.annots = _getannots(pdfannots, page)
             page.annots.sort()
@@ -265,11 +266,9 @@ def process_file(
     try:
         outlines = _get_outlines(doc, pageslist, pagesdict)
     except PDFNoOutlines:
-        if emit_progress:
-            sys.stderr.write(
-                "Document doesn't include outlines (\"bookmarks\")\n")
+        logger.info("Document doesn't include outlines (\"bookmarks\")")
     except Exception as ex:
-        sys.stderr.write("Warning: failed to retrieve outlines: %s\n" % ex)
+        logger.warning("Failed to retrieve outlines: %s", ex)
 
     device.close()
 
