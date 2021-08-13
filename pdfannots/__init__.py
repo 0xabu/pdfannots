@@ -9,7 +9,7 @@ import logging
 import typing
 
 from .types import Box, Pos, Page, Outline, Annotation
-import pdfannots.utils as utils
+from .utils import cleanup_text, decode_datetime
 
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
@@ -45,7 +45,7 @@ def _getannots(
         contents = pa.get('Contents')
         if contents is not None:
             # decode as string, normalise line endings, replace special characters
-            contents = utils.cleanup_text(pdfminer.utils.decode_text(contents))
+            contents = cleanup_text(pdfminer.utils.decode_text(contents))
 
         coords = pdftypes.resolve1(pa.get('QuadPoints'))
         rect = pdftypes.resolve1(pa.get('Rect'))
@@ -63,7 +63,7 @@ def _getannots(
         createds = pdftypes.resolve1(dobj)
         if createds is not None:
             createds = pdfminer.utils.decode_text(createds)
-            created = utils.decode_datetime(createds)
+            created = decode_datetime(createds)
 
         a = Annotation(page, subtype.name, coords, rect,
                        contents, author=author, created=created)
@@ -128,13 +128,10 @@ class _RectExtractor(TextConverter):  # type:ignore
     def __init__(
             self,
             rsrcmgr: PDFResourceManager,
-            codec: str = 'utf-8',
-            pageno: int = 1,
             laparams: typing.Optional[LAParams] = None):
 
         dummy = io.StringIO()
-        TextConverter.__init__(self, rsrcmgr, outfp=dummy,
-                               codec=codec, pageno=pageno, laparams=laparams)
+        TextConverter.__init__(self, rsrcmgr, outfp=dummy, laparams=laparams)
         self.annots = set()
 
     def setannots(self, annots: typing.Sequence[Annotation]) -> None:
@@ -224,8 +221,7 @@ def process_file(
 ) -> typing.Tuple[typing.List[Annotation], typing.List[Outline]]:
 
     rsrcmgr = PDFResourceManager()
-    laparams = LAParams()
-    device = _RectExtractor(rsrcmgr, laparams=laparams)
+    device = _RectExtractor(rsrcmgr, laparams=LAParams())
     interpreter = PDFPageInterpreter(rsrcmgr, device)
     parser = PDFParser(fh)
     doc = PDFDocument(parser)
@@ -235,9 +231,7 @@ def process_file(
     allannots = []
 
     def emit_progress(msg: str) -> None:
-        if emit_progress_to is None:
-            pass
-        else:
+        if emit_progress_to is not None:
             emit_progress_to.write(msg)
             emit_progress_to.flush()
 
