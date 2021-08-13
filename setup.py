@@ -2,17 +2,17 @@ from setuptools import setup, find_packages
 import pathlib
 
 
-def get_version_from_file(filename: str) -> str:
+def get_version_from_file(filename: pathlib.Path) -> str:
     with open(filename, 'r') as fh:
         for line in fh.readlines():
             if line.startswith('__version__'):
                 delim = '"' if '"' in line else "'"
                 return line.split(delim)[1]
 
-    raise RuntimeError("Unable to find version string in " + filename)
+    raise RuntimeError("Unable to find version string in %s" % filename)
 
 
-def main():
+def main() -> None:
     here = pathlib.Path(__file__).parent.resolve()
     name = 'pdfannots'
     setup(

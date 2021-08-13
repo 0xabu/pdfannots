@@ -1,7 +1,7 @@
 # This workflow will install Python dependencies, run tests and lint with a variety of Python versions
 # For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
 
-name: Python package
+name: Python checks
 
 on:
   push:
@@ -28,15 +28,11 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install flake8 mypy autopep8 pytest
         pip install -r requirements.txt
-    - name: Lint with flake8
-      run: |
-        # stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # apply more pedantic rules for pdfannots than tests etc.
-        flake8 pdfannots --count --ignore=E741,W503 --show-source --max-line-length=100 --statistics
     - name: Type check with mypy
       run: mypy pdfannots
+    - name: Lint with flake8
+      run: flake8 . --count --show-source --statistics
     - name: Check formatting with autopep8
-      run: autopep8 --diff --recursive --exit-code pdfannots
+      run: autopep8 --diff --recursive --exit-code .
     - name: Test with pytest
       run: pytest tests.py

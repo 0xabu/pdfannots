@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# mypy: ignore-errors
 
 from datetime import datetime, timedelta, timezone
 import unittest
@@ -27,7 +28,8 @@ class ExtractionTests(ExtractionTestBase):
             (0, 'Squiggly', None, 'recent Intel CPUs have introduced'),
             (0, 'Text', 'This is a note with no text attached.', None),
             (1, 'Highlight', None,
-             'TSX launched with "Haswell" in 2013 but was later disabled due to a bug. "Broadwell" CPUs with the bug fix shipped in late 2014.'),
+             'TSX launched with "Haswell" in 2013 but was later disabled due to a bug. '
+             '"Broadwell" CPUs with the bug fix shipped in late 2014.'),
             (1, 'Highlight', 'This is lower in column 1',
              'user-mode access to FS/GS registers, and TLB tags for non-VM address spaces'),
             (1, 'Highlight', 'This is at the top of column two',
@@ -97,7 +99,9 @@ class Pr24(ExtractionTestBase):
 
     def test(self):
         EXPECTED = [
-            ('Highlight', 'long highlight', 'Link to heading that is working with vim-pandoc. Link to heading that Heading'), # BUG: Heading is captured out of order!
+            ('Highlight', 'long highlight',
+             # BUG: Heading is captured out of order!
+             'Link to heading that is working with vim-pandoc. Link to heading that Heading'),
             ('Highlight', 'short highlight', 'not working'),
             ('Text', None, None),
             ('Highlight', None, 'Some more text'),
