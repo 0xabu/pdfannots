@@ -49,9 +49,5 @@ def main() -> None:
 
     for file in args.input:
         (annots, outlines) = process_file(file, args.cols, args.progress)
-
-        if args.printfilename and annots:
-            args.output.write("# File: '%s'\n\n" % file.name)
-
-        for line in printer(annots, outlines):
+        for line in printer(file.name, annots, outlines):
             args.output.write(line)

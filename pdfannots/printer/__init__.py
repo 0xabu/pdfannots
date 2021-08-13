@@ -19,6 +19,7 @@ class Printer(abc.ABC):
     @abc.abstractmethod
     def __call__(
         self,
+        filename: str,
         annots: typing.Sequence[Annotation],
         outlines: typing.Sequence[Outline]
     ) -> typing.Iterator[str]:

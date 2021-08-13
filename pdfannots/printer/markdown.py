@@ -13,6 +13,7 @@ class MarkdownPrinter(Printer):
 
     def __init__(self, args: argparse.Namespace):
         super().__init__(args)
+        self.printfilename = args.printfilename  # Whether to print file names
         self.wrapcol = args.wrap       # Column at which output is word-wrapped
         self.condense = args.condense  # Permit use of the condensed format
 
@@ -34,6 +35,16 @@ class MarkdownPrinter(Printer):
                 width=self.wrapcol,
                 initial_indent=self.QUOTE_INDENT,
                 subsequent_indent=self.QUOTE_INDENT)
+
+    def __call__(
+            self,
+            filename: str,
+            annots: typing.Sequence[Annotation],
+            outlines: typing.Sequence[Outline]
+    ) -> typing.Iterator[str]:
+        if self.printfilename and annots:
+            yield "# File: '%s'\n\n" % filename
+        yield from self.emit_body(annots, outlines)
 
     def nearest_outline(
         self,
@@ -153,12 +164,11 @@ class MarkdownPrinter(Printer):
             quotepos = (1, len(text)) if text else None
             return self.format_bullet(msgparas, quotepos) + "\n\n"
 
-    def __call__(
+    def emit_body(
             self,
             annots: typing.Sequence[Annotation],
             outlines: typing.Sequence[Outline]
     ) -> typing.Iterator[str]:
-
         for a in annots:
             yield self.format_annot(a, outlines, a.tagname)
 
@@ -171,7 +181,7 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
         super().__init__(args)
         self.sections = args.sections  # controls the order of sections output
 
-    def __call__(
+    def emit_body(
             self,
             annots: typing.Sequence[Annotation],
             outlines: typing.Sequence[Outline]
