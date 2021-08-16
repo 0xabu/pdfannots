@@ -256,6 +256,10 @@ def process_file(
             else:
                 logger.warning("Unknown annotation: %s", pa)
 
+        # If the page has neither outlines nor annotations, skip further processing.
+        if not (page.annots or page.outlines):
+            continue
+
         # Render the page. This captures the selected text for any annotations
         # on the page, and updates annotations and outlines with a logical
         # sequence number based on the order of text lines on the page.
