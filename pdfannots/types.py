@@ -63,6 +63,10 @@ class Pos:
         self._pageseq = 0
         self._pageseq_distance = 0.0
 
+    def __str__(self) -> str:
+        # + 1 for 1-based page numbers in normal program output (error messages, etc.)
+        return ('page %d (%.3f,%.3f)' % (self.page.pageno + 1, self.x, self.y))
+
     def __repr__(self) -> str:
         return ('<Pos pg%d (%.3f,%.3f) #%d>' % (self.page.pageno, self.x, self.y, self._pageseq))
 
@@ -212,7 +216,7 @@ class Annotation:
         self._setstartpos()
 
     def __repr__(self) -> str:
-        return ('<Annotation %s %s%s%s>' %
+        return ('<Annotation %s %r%s%s>' %
                 (self.tagname, self.startpos,
                  " '%s'" % self.contents[:10] if self.contents else '',
                  " '%s'" % self.text[:10] if self.text else ''))
@@ -242,7 +246,8 @@ class Annotation:
                 return cleanup_text(self.text.strip())
             else:
                 # something's strange -- we have boxes but no text for them
-                return "(XXX: missing text!)"
+                logger.warning('Missing text for %s annotation at %s', self.tagname, self.startpos)
+                return ""
         else:
             return None
 
@@ -294,7 +299,7 @@ class Outline:
         self.pos = None
 
     def __repr__(self) -> str:
-        return ('<Outline \'%s\' %s>' % (self.title, self.pos))
+        return ('<Outline \'%s\' %r>' % (self.title, self.pos))
 
     def resolve(self, page: Page) -> None:
         """Resolve our page reference to the given page, and update our position."""
