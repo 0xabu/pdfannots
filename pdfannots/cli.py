@@ -20,8 +20,6 @@ def parse_args() -> argparse.Namespace:
                    help="emit progress information to stderr")
     g.add_argument("-o", metavar="OUTFILE", type=argparse.FileType("w"), dest="output",
                    default=sys.stdout, help="output file (default is stdout)")
-    g.add_argument("-n", "--cols", default=2, type=int, metavar="COLS", dest="cols",
-                   help="number of columns per page in the document (default: 2)")
 
     g = p.add_argument_group('Options controlling output format')
     g.add_argument("-s", "--sections", metavar="SEC", nargs="*",
@@ -52,6 +50,6 @@ def main() -> None:
 
     for file in args.input:
         (annots, outlines) = process_file(
-            file, args.cols, sys.stderr if args.progress else None)
+            file, sys.stderr if args.progress else None)
         for line in printer(file.name, annots, outlines):
             args.output.write(line)

@@ -52,8 +52,11 @@ class MarkdownPrinter(Printer):
         pos: Pos
     ) -> typing.Optional[Outline]:
 
+        # TODO: rather than searching from the beginning for the last hit, we
+        # could use the outlines via the page object, and search back from pos
         prev = None
         for o in outlines:
+            assert o.pos is not None
             if o.pos < pos:
                 prev = o
             else:
@@ -66,8 +69,7 @@ class MarkdownPrinter(Printer):
         outlines: typing.Sequence[Outline]
     ) -> str:
 
-        apos = annot.getstartpos()
-        o = self.nearest_outline(outlines, apos) if apos else None
+        o = self.nearest_outline(outlines, annot.startpos) if annot.startpos else None
         if o:
             return "Page %d (%s)" % (annot.page.pageno + 1, o.title)
         else:
