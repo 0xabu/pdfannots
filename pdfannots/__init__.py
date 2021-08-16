@@ -196,11 +196,12 @@ class _RectExtractor(TextConverter):  # type:ignore
 
 def process_file(
     file: typing.BinaryIO,
-    emit_progress_to: typing.Optional[typing.TextIO] = None
+    emit_progress_to: typing.Optional[typing.TextIO] = None,
+    laparams: LAParams = LAParams()
 ) -> typing.Tuple[typing.List[Annotation], typing.List[Outline]]:
 
     rsrcmgr = PDFResourceManager()
-    device = _RectExtractor(rsrcmgr, laparams=LAParams())
+    device = _RectExtractor(rsrcmgr, laparams=laparams)
     interpreter = PDFPageInterpreter(rsrcmgr, device)
     parser = PDFParser(file)
     doc = PDFDocument(parser)

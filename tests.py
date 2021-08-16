@@ -5,6 +5,7 @@ import argparse
 from datetime import datetime, timedelta, timezone
 import unittest
 import pathlib
+import pdfminer.layout
 import pdfannots
 import pdfannots.utils
 from pdfannots.printer.markdown import MarkdownPrinter, GroupedMarkdownPrinter
@@ -26,10 +27,13 @@ class UnitTests(unittest.TestCase):
 
 
 class ExtractionTestBase(unittest.TestCase):
+    # Permit a test to customise the LAParams
+    laparams = pdfminer.layout.LAParams()
+
     def setUp(self):
         path = pathlib.Path(__file__).parent / 'tests' / self.filename
         with path.open('rb') as f:
-            (annots, outlines) = pdfannots.process_file(f)
+            (annots, outlines) = pdfannots.process_file(f, laparams=self.laparams)
             self.annots = annots
             self.outlines = outlines
 
@@ -96,28 +100,21 @@ class Issue13(ExtractionTestBase):
 class Pr24(ExtractionTestBase):
     filename = 'pr24.pdf'
 
-    # Desired output, but known-broken (see below).
-    EXPECTED = [
-        ('Highlight', 'long highlight',
-         'Heading Link to heading that is working with vim-pandoc. Link to heading that'),
-        ('Highlight', 'short highlight', 'not working'),
-        ('Text', None, None),
-        ('Highlight', None, 'Some more text'),
-        ('Text', 's', None),
-        ('Text', 'dual\n\npara note', None)]
+    # Workaround for https://github.com/pdfminer/pdfminer.six/issues/658
+    laparams = pdfminer.layout.LAParams(boxes_flow=None)
 
-    # BUG1: "Heading" text is captured out of order by pdfminer
-    # BUG2: because of that, the first three annotations are out of order
-    @unittest.expectedFailure
-    def testBroken(self):
-        for a, expected in zip(self.annots, self.EXPECTED):
+    def test(self):
+        EXPECTED = [
+            ('Highlight', 'long highlight',
+             'Heading Link to heading that is working with vim-pandoc. Link to heading that'),
+            ('Highlight', 'short highlight', 'not working'),
+            ('Text', None, None),
+            ('Highlight', None, 'Some more text'),
+            ('Text', 's', None),
+            ('Text', 'dual\n\npara note', None)]
+        self.assertEqual(len(self.annots), len(EXPECTED))
+        for a, expected in zip(self.annots, EXPECTED):
             self.assertEqual((a.tagname, a.contents, a.gettext()), expected)
-
-    def testOk(self):
-        self.assertEqual(len(self.annots), len(self.EXPECTED))
-        for i in range(3, len(self.annots)):
-            a = self.annots[i]
-            self.assertEqual((a.tagname, a.contents, a.gettext()), self.EXPECTED[i])
 
 
 class PrinterTestBase(unittest.TestCase):
