@@ -1,9 +1,10 @@
 import argparse
+import bisect
 import textwrap
 import typing
 
 from . import Printer
-from ..types import Pos, Outline, Annotation
+from ..types import Pos, Outline, Annotation, Page
 
 
 class MarkdownPrinter(Printer):
@@ -37,48 +38,59 @@ class MarkdownPrinter(Printer):
                 subsequent_indent=self.QUOTE_INDENT)
 
     def __call__(
-            self,
-            filename: str,
-            annots: typing.Sequence[Annotation],
-            outlines: typing.Sequence[Outline]
+        self,
+        filename: str,
+        pages: typing.Sequence[Page]
     ) -> typing.Iterator[str]:
-        if self.printfilename and annots:
-            yield "# File: '%s'\n\n" % filename
-        yield from self.emit_body(annots, outlines)
+        iter = self.emit_body(pages)
+
+        if self.printfilename:
+            # Print the file name, only if there is some output.
+            try:
+                first = next(iter)
+            except StopIteration:
+                pass
+            else:
+                yield "# File: '%s'\n\n" % filename
+                yield first
+
+        yield from iter
 
     def nearest_outline(
         self,
-        outlines: typing.Sequence[Outline],
+        pages: typing.Sequence[Page],
         pos: Pos
     ) -> typing.Optional[Outline]:
+        """Return the first outline occuring prior to the given position, in reading order."""
 
-        # TODO: rather than searching from the beginning for the last hit, we
-        # could use the outlines via the page object, and search back from pos
-        prev = None
-        for o in outlines:
-            assert o.pos is not None
-            if o.pos < pos:
-                prev = o
-            else:
-                break
-        return prev
+        # Search pages backwards from the given pos
+        for pageno in range(pos.page.pageno, -1, -1):
+            page = pages[pageno]
+            assert page.pageno == pageno
+
+            # Outlines are pre-sorted, so we can use bisect to find the first outline < pos
+            idx = bisect.bisect(page.outlines, pos)
+            if idx:
+                return page.outlines[idx - 1]
+
+        return None
 
     def format_pos(
         self,
         annot: Annotation,
-        outlines: typing.Sequence[Outline]
+        pages: typing.Sequence[Page]
     ) -> str:
 
-        o = self.nearest_outline(outlines, annot.startpos) if annot.startpos else None
+        o = self.nearest_outline(pages, annot.startpos) if annot.startpos else None
         if o:
             return "Page %d (%s)" % (annot.page.pageno + 1, o.title)
         else:
             return "Page %d" % (annot.page.pageno + 1)
 
     def format_bullet(
-            self,
-            paras: typing.List[str],
-            quote: typing.Optional[typing.Tuple[int, int]] = None
+        self,
+        paras: typing.List[str],
+        quote: typing.Optional[typing.Tuple[int, int]] = None
     ) -> str:
         """
         Format a Markdown bullet, wrapped as desired.
@@ -118,10 +130,10 @@ class MarkdownPrinter(Printer):
         return ret
 
     def format_annot(
-            self,
-            annot: Annotation,
-            outlines: typing.Sequence[Outline],
-            extra: typing.Optional[str] = None
+        self,
+        annot: Annotation,
+        pages: typing.Sequence[Page],
+        extra: typing.Optional[str] = None
     ) -> str:
 
         # capture item text and contents (i.e. the comment), and split each into paragraphs
@@ -136,7 +148,7 @@ class MarkdownPrinter(Printer):
         assert text or comment
 
         # compute the formatted position (and extra bit if needed) as a label
-        label = self.format_pos(annot, outlines) + \
+        label = self.format_pos(annot, pages) + \
             (" " + extra if extra else "") + ":"
 
         # If we have short (single-paragraph, few words) text with a short or no
@@ -167,12 +179,12 @@ class MarkdownPrinter(Printer):
             return self.format_bullet(msgparas, quotepos) + "\n\n"
 
     def emit_body(
-            self,
-            annots: typing.Sequence[Annotation],
-            outlines: typing.Sequence[Outline]
+        self,
+        pages: typing.Sequence[Page]
     ) -> typing.Iterator[str]:
-        for a in annots:
-            yield self.format_annot(a, outlines, a.tagname)
+        for p in pages:
+            for a in p.annots:
+                yield self.format_annot(a, pages, a.tagname)
 
 
 class GroupedMarkdownPrinter(MarkdownPrinter):
@@ -184,9 +196,8 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
         self.sections = args.sections  # controls the order of sections output
 
     def emit_body(
-            self,
-            annots: typing.Sequence[Annotation],
-            outlines: typing.Sequence[Outline]
+        self,
+        pages: typing.Sequence[Page]
     ) -> typing.Iterator[str]:
 
         self._fmt_header_called = False
@@ -197,25 +208,32 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
             self._fmt_header_called = True
             return prefix + "## " + name + "\n\n"
 
-        highlights = [a for a in annots
-                      if a.tagname == 'Highlight' and a.contents is None]
-        comments = [a for a in annots
-                    if a.tagname not in self.ANNOT_NITS and a.contents]
-        nits = [a for a in annots if a.tagname in self.ANNOT_NITS]
+        # Partition annotations into nits, comments, and highlights.
+        nits = []
+        comments = []
+        highlights = []
+        for p in pages:
+            for a in p.annots:
+                if a.tagname in self.ANNOT_NITS:
+                    nits.append(a)
+                elif a.contents:
+                    comments.append(a)
+                elif a.tagname == 'Highlight':
+                    highlights.append(a)
 
         for secname in self.sections:
             if highlights and secname == 'highlights':
                 yield fmt_header("Highlights")
                 for a in highlights:
-                    yield self.format_annot(a, outlines)
+                    yield self.format_annot(a, pages)
 
             if comments and secname == 'comments':
                 yield fmt_header("Detailed comments")
                 for a in comments:
-                    yield self.format_annot(a, outlines)
+                    yield self.format_annot(a, pages)
 
             if nits and secname == 'nits':
                 yield fmt_header("Nits")
                 for a in nits:
                     extra = "delete" if a.tagname == 'StrikeOut' else None
-                    yield self.format_annot(a, outlines, extra)
+                    yield self.format_annot(a, pages, extra)

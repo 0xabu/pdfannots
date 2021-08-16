@@ -33,8 +33,8 @@ class Page:
         self.annots = []
         self.outlines = []
 
-    def __str__(self) -> str:
-        return ('<%s %d>' % (self.__class__.__name__, self.pageno))
+    def __repr__(self) -> str:
+        return ('<Page %d>' % self.pageno)
 
     def __eq__(self, other: typing.Any) -> bool:
         if not isinstance(other, Page):
@@ -63,28 +63,30 @@ class Pos:
         self._pageseq = 0
         self._pageseq_distance = 0.0
 
-    def __str__(self) -> str:
-        return ('<%s %s (%.3f,%.3f) #%d>' %
-                (self.__class__.__name__, self.page, self.x, self.y, self._pageseq))
+    def __repr__(self) -> str:
+        return ('<Pos pg%d (%.3f,%.3f) #%d>' % (self.page.pageno, self.x, self.y, self._pageseq))
 
     def __lt__(self, other: typing.Any) -> bool:
-        if not isinstance(other, Pos):
-            return NotImplemented
-        elif self.page == other.page:
-            assert self.page is other.page
-            assert self._pageseq != 0
-            assert other._pageseq != 0
-            if self._pageseq == other._pageseq:
-                # The positions are on or closest to the same line of text.
-                # XXX: assume top-to-bottom left-to-right order
-                if self.y == other.y:
-                    return self.x < other.x
+        if isinstance(other, Pos):
+            if self.page == other.page:
+                assert self.page is other.page
+                assert self._pageseq != 0
+                assert other._pageseq != 0
+                if self._pageseq == other._pageseq:
+                    # The positions are on or closest to the same line of text.
+                    # XXX: assume top-to-bottom left-to-right order
+                    if self.y == other.y:
+                        return self.x < other.x
+                    else:
+                        return self.y > other.y
                 else:
-                    return self.y > other.y
+                    return self._pageseq < other._pageseq
             else:
-                return self._pageseq < other._pageseq
+                return self.page < other.page
+        elif isinstance(other, Outline):
+            return self < other.pos
         else:
-            return self.page < other.page
+            return NotImplemented
 
     def item_hit(self, item: LTComponent) -> bool:
         """Is this pos within the bounding box of the given PDF component?"""
@@ -209,9 +211,9 @@ class Annotation:
 
         self._setstartpos()
 
-    def __str__(self) -> str:
-        return ('<%s: %s %s %s%s%s>' %
-                (self.__class__.__name__, self.tagname, self.page, self.startpos,
+    def __repr__(self) -> str:
+        return ('<Annotation %s %s%s%s>' %
+                (self.tagname, self.startpos,
                  " '%s'" % self.contents[:10] if self.contents else '',
                  " '%s'" % self.text[:10] if self.text else ''))
 
@@ -291,6 +293,9 @@ class Outline:
         self.target = target
         self.pos = None
 
+    def __repr__(self) -> str:
+        return ('<Outline \'%s\' %s>' % (self.title, self.pos))
+
     def resolve(self, page: Page) -> None:
         """Resolve our page reference to the given page, and update our position."""
         assert self.pos is None
@@ -307,4 +312,7 @@ class Outline:
             assert self.pos is not None
             assert other.pos is not None
             return self.pos < other.pos
+        elif isinstance(other, Pos):
+            assert self.pos is not None
+            return self.pos < other
         return NotImplemented

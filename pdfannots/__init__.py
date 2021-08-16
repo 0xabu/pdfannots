@@ -198,7 +198,7 @@ def process_file(
     file: typing.BinaryIO,
     emit_progress_to: typing.Optional[typing.TextIO] = None,
     laparams: LAParams = LAParams()
-) -> typing.Tuple[typing.List[Annotation], typing.List[Outline]]:
+) -> typing.List[Page]:
 
     rsrcmgr = PDFResourceManager()
     device = _RectExtractor(rsrcmgr, laparams=laparams)
@@ -231,14 +231,13 @@ def process_file(
     except Exception as ex:
         logger.warning("Failed to retrieve outlines: %s", ex)
 
-    # Step 2: iterate over all the pages, using pdfminer to render the text on
-    # each page, constructing lists of annotations and (resolved) outlines.
-    allannots = []
-    alloutlines = []
+    # Step 2: iterate over all the pages.
+    pages = []
     for (pageno, pdfpage) in enumerate(PDFPage.create_pages(doc)):
         emit_progress(" %d" % (pageno + 1))
 
         page = Page(pageno, pdfpage.pageid)
+        pages.append(page)
 
         # Resolve any outlines referring to this page, and link them to the page.
         # Note that outlines may refer to the page number or ID.
@@ -269,8 +268,6 @@ def process_file(
         # Now we have their logical order, sort the annotations and outlines.
         page.annots.sort()
         page.outlines.sort()
-        allannots.extend(page.annots)
-        alloutlines.extend(page.outlines)
 
     emit_progress("\n")
 
@@ -280,4 +277,4 @@ def process_file(
     assert {} == outlines_by_pageno
     assert {} == outlines_by_objid
 
-    return (allannots, alloutlines)
+    return pages

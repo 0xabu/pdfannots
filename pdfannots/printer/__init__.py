@@ -2,7 +2,7 @@ import abc
 import argparse
 import typing
 
-from ..types import Outline, Annotation
+from ..types import Page
 
 
 class Printer(abc.ABC):
@@ -20,8 +20,7 @@ class Printer(abc.ABC):
     def __call__(
         self,
         filename: str,
-        annots: typing.Sequence[Annotation],
-        outlines: typing.Sequence[Outline]
+        pages: typing.Sequence[Page]
     ) -> typing.Iterator[str]:
         """
         Pretty-print the extracted annotations, yielding output (incrementally) as strings.

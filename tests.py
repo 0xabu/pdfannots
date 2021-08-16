@@ -33,9 +33,9 @@ class ExtractionTestBase(unittest.TestCase):
     def setUp(self):
         path = pathlib.Path(__file__).parent / 'tests' / self.filename
         with path.open('rb') as f:
-            (annots, outlines) = pdfannots.process_file(f, laparams=self.laparams)
-            self.annots = annots
-            self.outlines = outlines
+            self.pages = pdfannots.process_file(f, laparams=self.laparams)
+            self.annots = [a for p in self.pages for a in p.annots]
+            self.outlines = [o for p in self.pages for o in p.outlines]
 
 
 class ExtractionTests(ExtractionTestBase):
@@ -123,9 +123,7 @@ class PrinterTestBase(unittest.TestCase):
     def setUp(self):
         path = pathlib.Path(__file__).parent / 'tests' / self.filename
         with path.open('rb') as f:
-            (annots, outlines) = pdfannots.process_file(f)
-            self.annots = annots
-            self.outlines = outlines
+            self.pages = pdfannots.process_file(f)
 
 
 class MarkdownPrinterTest(PrinterTestBase):
@@ -141,7 +139,7 @@ class MarkdownPrinterTest(PrinterTestBase):
 
         linecount = 0
         charcount = 0
-        for line in p('dummyfile', self.annots, self.outlines):
+        for line in p('dummyfile', self.pages):
             linecount += line.count('\n')
             charcount += len(line)
 
@@ -159,7 +157,7 @@ class MarkdownPrinterTest(PrinterTestBase):
 
         linecount = 0
         charcount = 0
-        for line in p('dummyfile', self.annots, self.outlines):
+        for line in p('dummyfile', self.pages):
             linecount += line.count('\n')
             charcount += len(line)
 
