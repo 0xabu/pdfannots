@@ -34,14 +34,15 @@ class ExtractionTestBase(unittest.TestCase):
     def setUp(self):
         path = pathlib.Path(__file__).parent / 'tests' / self.filename
         with path.open('rb') as f:
-            self.pages = pdfannots.process_file(f, columns_per_page=self.columns_per_page,
-                                                laparams=self.laparams)
-            self.annots = [a for p in self.pages for a in p.annots]
-            self.outlines = [o for p in self.pages for o in p.outlines]
+            self.doc = pdfannots.process_file(f, columns_per_page=self.columns_per_page,
+                                              laparams=self.laparams)
+            self.annots = [a for p in self.doc.pages for a in p.annots]
+            self.outlines = [o for p in self.doc.pages for o in p.outlines]
 
 
 class ExtractionTests(ExtractionTestBase):
     filename = 'hotos17.pdf'
+    columns_per_page = 2  # for test_nearest_outline
 
     def test_annots(self):
         EXPECTED = [
@@ -79,6 +80,18 @@ class ExtractionTests(ExtractionTestBase):
         self.assertEqual(len(self.outlines), len(EXPECTED))
         for o, expected in zip(self.outlines, EXPECTED):
             self.assertEqual(o.title, expected)
+
+    def test_nearest_outline(self):
+        # Page 1 (Introduction) Squiggly: "recent Intel CPUs have introduced"
+        o = self.doc.nearest_outline(self.doc.pages[0].annots[0].pos)
+        self.assertIsNotNone(o)
+        self.assertEqual(o.title, 'Introduction')
+
+        # Page 4 (Case study: CET) Squiggly: "Control transfer in x86 is already very complex"
+        # Note: pdfminer gets this wrong as of 20201018; we must set columns_per_page to fix it
+        o = self.doc.nearest_outline(self.doc.pages[3].annots[0].pos)
+        self.assertIsNotNone(o)
+        self.assertEqual(o.title, 'Case study: CET')
 
 
 class Issue9(ExtractionTestBase):
@@ -121,17 +134,14 @@ class Pr24(ExtractionTestBase):
 
 class PrinterTestBase(unittest.TestCase):
     filename = 'hotos17.pdf'
-    columns_per_page = None
 
     def setUp(self):
         path = pathlib.Path(__file__).parent / 'tests' / self.filename
         with path.open('rb') as f:
-            self.pages = pdfannots.process_file(f, columns_per_page=self.columns_per_page)
+            self.doc = pdfannots.process_file(f)
 
 
 class MarkdownPrinterTest(PrinterTestBase):
-    columns_per_page = 2  # for test_nearest_outline
-
     # There's not a whole lot of value in testing the precise output format,
     # but let's make sure we produce a non-trivial result and don't crash.
     def test_flat(self):
@@ -144,7 +154,7 @@ class MarkdownPrinterTest(PrinterTestBase):
 
         linecount = 0
         charcount = 0
-        for line in p('dummyfile', self.pages):
+        for line in p('dummyfile', self.doc):
             linecount += line.count('\n')
             charcount += len(line)
 
@@ -162,31 +172,12 @@ class MarkdownPrinterTest(PrinterTestBase):
 
         linecount = 0
         charcount = 0
-        for line in p('dummyfile', self.pages):
+        for line in p('dummyfile', self.doc):
             linecount += line.count('\n')
             charcount += len(line)
 
         self.assertGreater(linecount, 10)
         self.assertGreater(charcount, 900)
-
-    def test_nearest_outline(self):
-        args = argparse.Namespace()
-        args.printfilename = False
-        args.wrap = None
-        args.condense = False
-
-        p = MarkdownPrinter(args)
-
-        # Page 1 (Introduction) Squiggly: "recent Intel CPUs have introduced"
-        o = p.nearest_outline(self.pages, self.pages[0].annots[0].pos)
-        self.assertIsNotNone(o)
-        self.assertEqual(o.title, 'Introduction')
-
-        # Page 4 (Case study: CET) Squiggly: "Control transfer in x86 is already very complex"
-        # Note: pdfminer gets this wrong as of 20201018; we must set columns_per_page to fix it
-        o = p.nearest_outline(self.pages, self.pages[3].annots[0].pos)
-        self.assertIsNotNone(o)
-        self.assertEqual(o.title, 'Case study: CET')
 
 
 if __name__ == "__main__":

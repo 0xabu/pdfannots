@@ -1,8 +1,11 @@
+import bisect
 import datetime
 import logging
 import typing
+
 from pdfminer.layout import LTComponent, LTTextLine
 from pdfminer.pdftypes import PDFObjRef
+
 from .utils import cleanup_text
 
 logger = logging.getLogger('pdfannots')
@@ -347,3 +350,42 @@ class Outline(ObjectWithPos):
 
         targetx, targety = self.target
         self.pos = Pos(page, targetx, targety)
+
+
+class Document:
+    """
+    A fully-extracted PDF document.
+
+    This is really just a list of pages and some helpers.
+
+    Attributes:
+        pages   An ordered list of Page objects, indexed by zero-based page number.
+    """
+
+    pages: typing.List[Page]
+
+    def __init__(self) -> None:
+        self.pages = []
+
+    def iter_annots(self) -> typing.Iterator[Annotation]:
+        """Iterate over all the annotations in the document."""
+        for p in self.pages:
+            yield from p.annots
+
+    def nearest_outline(
+        self,
+        pos: Pos
+    ) -> typing.Optional[Outline]:
+        """Return the first outline occuring prior to the given position, in reading order."""
+
+        # Search pages backwards from the given pos
+        for pageno in range(pos.page.pageno, -1, -1):
+            page = self.pages[pageno]
+            assert page.pageno == pageno
+
+            # Outlines are pre-sorted, so we can use bisect to find the first outline < pos
+            idx = bisect.bisect(page.outlines, ObjectWithPos(pos))
+            if idx:
+                return page.outlines[idx - 1]
+
+        return None

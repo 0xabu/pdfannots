@@ -9,7 +9,7 @@ import itertools
 import logging
 import typing
 
-from .types import Page, Outline, Annotation
+from .types import Page, Outline, Annotation, Document
 from .utils import cleanup_text, decode_datetime
 
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
@@ -214,7 +214,7 @@ def process_file(
     columns_per_page: typing.Optional[int] = None,
     emit_progress_to: typing.Optional[typing.TextIO] = None,
     laparams: LAParams = LAParams()
-) -> typing.List[Page]:
+) -> Document:
     """
     Process a PDF file, extracting its annotations and outlines.
 
@@ -223,8 +223,6 @@ def process_file(
         columns_per_page    If set, overrides PDF Miner's layout detect with a fixed page layout
         emit_progress_to    If set, file handle (e.g. sys.stderr) to which progress is reported
         laparams            PDF Miner layout parameters
-
-    Returns a list of Page objects in document order, one per page.
     """
 
     # Initialise PDFMiner state
@@ -260,12 +258,12 @@ def process_file(
         logger.warning("Failed to retrieve outlines: %s", ex)
 
     # Step 2: iterate over all the pages, constructing page objects.
-    pages = []
+    result = Document()
     for (pageno, pdfpage) in enumerate(PDFPage.create_pages(doc)):
         emit_progress(" %d" % (pageno + 1))
 
         page = Page(pageno, pdfpage.pageid, pdfpage.mediabox, columns_per_page)
-        pages.append(page)
+        result.pages.append(page)
 
         # Resolve any outlines referring to this page, and link them to the page.
         # Note that outlines may refer to the page number or ID.
@@ -305,4 +303,4 @@ def process_file(
     assert {} == outlines_by_pageno
     assert {} == outlines_by_objid
 
-    return pages
+    return result

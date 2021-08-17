@@ -114,10 +114,10 @@ def main() -> None:
     printer = (GroupedMarkdownPrinter if args.group else MarkdownPrinter)(args)
 
     for file in args.input:
-        pages = process_file(
+        doc = process_file(
             file,
             args.cols,
             emit_progress_to=(sys.stderr if args.progress else None),
             laparams=laparams)
-        for line in printer(file.name, pages):
+        for line in printer(file.name, doc):
             args.output.write(line)
