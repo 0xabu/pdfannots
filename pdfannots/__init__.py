@@ -5,7 +5,6 @@ Extracts annotations from a PDF file in markdown format for use in reviewing.
 __version__ = '0.1'
 
 import collections
-import io
 import logging
 import typing
 
@@ -16,7 +15,7 @@ from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
 from pdfminer.layout import (
     LAParams, LTContainer, LTAnno, LTChar, LTPage, LTTextBox, LTTextLine, LTItem, LTComponent)
-from pdfminer.converter import TextConverter
+from pdfminer.converter import PDFLayoutAnalyzer
 from pdfminer.pdfparser import PDFParser
 from pdfminer.pdfdocument import PDFDocument, PDFNoOutlines
 from pdfminer.psparser import PSLiteralTable, PSLiteral
@@ -36,9 +35,10 @@ def _mkannotation(
     pa: typing.Any,
     page: Page
 ) -> typing.Optional[Annotation]:
+    """Given a PDF annotation, capture relevant fields and construct an Annotation object."""
 
     subtype = pa.get('Subtype')
-    if subtype is not None and subtype.name not in ANNOT_SUBTYPES:
+    if subtype is None or subtype.name not in ANNOT_SUBTYPES:
         return None
 
     contents = pa.get('Contents')
@@ -68,17 +68,18 @@ def _mkannotation(
                       contents, author=author, created=created)
 
 
-def _resolve_dest(doc: PDFDocument, dest: typing.Any) -> typing.Any:
-    if isinstance(dest, bytes):
-        dest = pdftypes.resolve1(doc.get_dest(dest))
-    elif isinstance(dest, PSLiteral):
-        dest = pdftypes.resolve1(doc.get_dest(dest.name))
-    if isinstance(dest, dict):
-        dest = dest['D']
-    return dest
-
-
 def _get_outlines(doc: PDFDocument) -> typing.Iterator[Outline]:
+    """Retrieve a list of (unresolved) Outline objects for all recognised outlines in the PDF."""
+
+    def _resolve_dest(dest: typing.Any) -> typing.Any:
+        if isinstance(dest, bytes):
+            dest = pdftypes.resolve1(doc.get_dest(dest))
+        elif isinstance(dest, PSLiteral):
+            dest = pdftypes.resolve1(doc.get_dest(dest.name))
+        if isinstance(dest, dict):
+            dest = dest['D']
+        return dest
+
     for (_, title, destname, actionref, _) in doc.get_outlines():
         if destname is None and actionref:
             action = pdftypes.resolve1(actionref)
@@ -88,7 +89,7 @@ def _get_outlines(doc: PDFDocument) -> typing.Iterator[Outline]:
                     destname = action.get('D')
         if destname is None:
             continue
-        dest = _resolve_dest(doc, destname)
+        dest = _resolve_dest(destname)
 
         # consider targets of the form [page /XYZ left top zoom]
         if dest[1] is PSLiteralTable.intern('XYZ'):
@@ -100,36 +101,40 @@ def _get_outlines(doc: PDFDocument) -> typing.Iterator[Outline]:
                 logger.warning("Unsupported pageref in outline: %s", pageref)
 
 
-class _RectExtractor(TextConverter):  # type:ignore
+class _PDFProcessor(PDFLayoutAnalyzer):  # type:ignore
     # (pdfminer lacks type annotations)
+    """
+    PDF processor class.
 
-    page: typing.Optional[Page]
-    pageseq: int
+    This class encapsulates our primary interface with pdfminer's page layout logic. It is used
+    to define a logical order for the objects we care about (Annotations and Outlines) on a page,
+    and to capture the text that annotations may refer to.
+    """
+
+    page: typing.Optional[Page]  # Page currently being processed.
+    pageseq: int                 # Current reading-order sequence number within the page.
     _lasthit: typing.FrozenSet[Annotation]
     _curline: typing.Set[Annotation]
 
-    def __init__(
-            self,
-            rsrcmgr: PDFResourceManager,
-            laparams: typing.Optional[LAParams] = None):
-
-        dummy = io.StringIO()
-        TextConverter.__init__(self, rsrcmgr, outfp=dummy, laparams=laparams)
+    def __init__(self, rsrcmgr: PDFResourceManager, laparams: LAParams):
+        super().__init__(rsrcmgr, laparams=laparams)
         self.page = None
         self.pageseq = 0
 
-    # Called once at the start of each new page
     def start_page(self, page: Page) -> None:
+        """Prepare to process a new page. Must be called prior to processing."""
         self.page = page
         self.pageseq = 0
 
-    # callback from parent PDFConverter
     def receive_layout(self, ltpage: LTPage) -> None:
+        """Callback from PDFLayoutAnalyzer superclass. Called once with each laid-out page."""
+        assert self.page is not None
         self._lasthit = frozenset()
         self._curline = set()
         self.render(ltpage)
 
     def update_pageseq(self, line: LTTextLine) -> None:
+        """Assign sequence numbers for objects on the page based on the nearest line of text."""
         assert self.page is not None
         self.pageseq += 1
 
@@ -142,6 +147,7 @@ class _RectExtractor(TextConverter):  # type:ignore
             o.pos.update_pageseq(line, self.pageseq)
 
     def testboxes(self, item: LTComponent) -> typing.AbstractSet[Annotation]:
+        """Return the set of annotations whose boxes intersect with the area of the given item."""
         assert self.page is not None
         hits = frozenset(
             {a for a in self.page.annots if a.boxes and any(
@@ -150,17 +156,25 @@ class _RectExtractor(TextConverter):  # type:ignore
         self._curline.update(hits)
         return hits
 
-    # "broadcast" newlines to _all_ annotations that received any text on the
-    # current line, in case they see more text on the next line, even if the
-    # most recent character was not covered.
     def capture_newline(self) -> None:
+        """
+        Capture a line break.
+
+        "Broadcasts" newlines to _all_ annotations that received any text on the
+        current line, in case they see more text on the next line, even if the
+        most recent character on the line was not covered by their boxes.
+        """
         for a in self._curline:
             a.capture('\n')
         self._curline = set()
 
-    # This is called once for every layout item on a page, in layout order.
-    # Ref: https://pdfminersix.readthedocs.io/en/latest/topic/converting_pdf_to_text.html
     def render(self, item: LTItem) -> None:
+        """
+        Helper for receive_layout, called recursively for every item on a page, in layout order.
+
+        Ref: https://pdfminersix.readthedocs.io/en/latest/topic/converting_pdf_to_text.html
+        """
+        # Assign sequence numbers to items on the page based on their proximity to lines of text.
         if isinstance(item, LTTextLine):
             self.update_pageseq(item)
 
@@ -199,9 +213,20 @@ def process_file(
     emit_progress_to: typing.Optional[typing.TextIO] = None,
     laparams: LAParams = LAParams()
 ) -> typing.List[Page]:
+    """
+    Process a PDF file, extracting its annotations and outlines.
 
+    Arguments:
+        file                Handle to PDF file
+        emit_progress_to    If set, file handle (e.g. sys.stderr) to which progress is reported
+        laparams            PDF Miner layout parameters
+
+    Returns a list of Page objects in document order, one per page.
+    """
+
+    # Initialise PDFMiner state
     rsrcmgr = PDFResourceManager()
-    device = _RectExtractor(rsrcmgr, laparams=laparams)
+    device = _PDFProcessor(rsrcmgr, laparams=laparams)
     interpreter = PDFPageInterpreter(rsrcmgr, device)
     parser = PDFParser(file)
     doc = PDFDocument(parser)
@@ -213,13 +238,13 @@ def process_file(
 
     emit_progress(file.name)
 
-    outlines_by_pageno = collections.defaultdict(list)
-    outlines_by_objid = collections.defaultdict(list)
-
     # Step 1: retrieve outlines if present. Each outline refers to a page, using
     # *either* a PDF object ID or an integer page number. These references will
     # be resolved below while rendering pages -- for now we insert them into one
     # of two dicts for later.
+    outlines_by_pageno = collections.defaultdict(list)
+    outlines_by_objid = collections.defaultdict(list)
+
     try:
         for o in _get_outlines(doc):
             if type(o.pageref) is pdftypes.PDFObjRef:
@@ -231,7 +256,7 @@ def process_file(
     except Exception as ex:
         logger.warning("Failed to retrieve outlines: %s", ex)
 
-    # Step 2: iterate over all the pages.
+    # Step 2: iterate over all the pages, constructing page objects.
     pages = []
     for (pageno, pdfpage) in enumerate(PDFPage.create_pages(doc)):
         emit_progress(" %d" % (pageno + 1))
