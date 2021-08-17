@@ -286,21 +286,25 @@ class Annotation(ObjectWithPos):
                  " '%s'" % self.contents[:10] if self.contents else '',
                  " '%s'" % self.text[:10] if self.text else ''))
 
-    def capture(self, text: str) -> None:
+    def capture(self, text: str, remove_hyphen: bool = False) -> None:
         """Capture text (while rendering the PDF page)."""
         if text == '\n':
-            # Kludge for latex: elide hyphens
-            if self.text.endswith('-'):
-                self.text = self.text[:-1]
+            if (len(self.text) >= 2
+                    and self.text[-1] == '-'       # Line ends in an apparent hyphen
+                    and self.text[-2].islower()):  # Prior character was a lowercase letter
+                # We have a likely hyphen. Remove it if desired.
+                if remove_hyphen:
+                    self.text = self.text[:-1]
 
             # Join lines, treating newlines as space, while ignoring successive
             # newlines. This makes it easier for the for the renderer to
             # "broadcast" LTAnno newlines to active annotations regardless of
             # box hits. (Detecting paragraph breaks is tricky anyway, and left
-            # for future future work!)
+            # for future work!)
             elif not self.text.endswith(' '):
                 self.text += ' '
         else:
+            assert not remove_hyphen
             self.text += text
 
     def gettext(self) -> typing.Optional[str]:

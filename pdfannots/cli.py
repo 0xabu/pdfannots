@@ -31,33 +31,34 @@ def parse_args() -> typing.Tuple[argparse.Namespace, LAParams]:
 
     g = p.add_argument_group('Basic options')
     g.add_argument("-p", "--progress", default=False, action="store_true",
-                   help="emit progress information to stderr")
+                   help="Emit progress information to stderr.")
     g.add_argument("-o", metavar="OUTFILE", type=argparse.FileType("w"), dest="output",
-                   default=sys.stdout, help="output file (default is stdout)")
+                   default=sys.stdout, help="Output file (default is stdout).")
     g.add_argument("-n", "--cols", default=None, type=int, metavar="COLS", dest="cols",
                    help="Assume a fixed top-to-bottom left-to-right page layout with this many "
                         "columns per page. If unset, PDFMiner's layout detection logic is used.")
+    g.add_argument("--keep-hyphens", dest="remove_hyphens", default=True, action="store_false",
+                   help="When capturing text across a line break, don't attempt to remove hyphens.")
     g.add_argument("-f", "--format", choices=["md", "json"], default="md",
-                   help="output format (default: markdown)")
+                   help="Output format (default: markdown).")
 
-    g = p.add_argument_group('Options controlling markdown output format')
+    g = p.add_argument_group('Options controlling markdown output')
     g.add_argument("-s", "--sections", metavar="SEC", nargs="*",
                    choices=GroupedMarkdownPrinter.ALL_SECTIONS,
                    default=GroupedMarkdownPrinter.ALL_SECTIONS,
                    help=("sections to emit (default: %s)" %
                          ', '.join(GroupedMarkdownPrinter.ALL_SECTIONS)))
     g.add_argument("--no-condense", dest="condense", default=True, action="store_false",
-                   help="emit annotations as a blockquote regardless of length")
+                   help="Emit annotations as a blockquote regardless of length.")
     g.add_argument("--no-group", dest="group", default=True, action="store_false",
-                   help="emit annotations in order, don't group into sections")
+                   help="Emit annotations in order, don't group into sections.")
     g.add_argument("--print-filename", dest="printfilename", default=False, action="store_true",
-                   help="print the filename when it has annotations")
+                   help="Print the filename when it has annotations.")
     g.add_argument("-w", "--wrap", metavar="COLS", type=int,
-                   help="wrap text at this many output columns")
+                   help="Wrap text at this many output columns.")
 
     g = p.add_argument_group(
-        "Layout analysis parameters",
-        description="Advanced options affecting PDFMiner text layout analysis.")
+        "Advanced options affecting PDFMiner text layout analysis")
     laparams = LAParams()
     g.add_argument(
         "--line-overlap", metavar="REL_HEIGHT", type=float, default=laparams.line_overlap,
@@ -130,7 +131,8 @@ def main() -> None:
     for file in args.input:
         doc = process_file(
             file,
-            args.cols,
+            columns_per_page=args.cols,
+            remove_hyphens=args.remove_hyphens,
             emit_progress_to=(sys.stderr if args.progress else None),
             laparams=laparams)
         for line in printer.print_file(file.name, doc):
