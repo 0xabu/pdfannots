@@ -14,6 +14,80 @@ BoxCoords = typing.Tuple[float, float, float, float]
 """The coordinates of a bounding box (x0, y0, x1, y1)."""
 
 
+class Box:
+    """
+    Coordinates of a rectangular box.
+    """
+
+    def __init__(self, x0: float, y0: float, x1: float, y1: float):
+        assert x0 <= x1 and y0 <= y1
+        self.x0 = x0
+        self.x1 = x1
+        self.y0 = y0
+        self.y1 = y1
+
+    @staticmethod
+    def from_item(item: LTComponent) -> "Box":
+        """Construct a Box from the bounding box of a given PDF component."""
+        return Box(item.x0, item.y0, item.x1, item.y1)
+
+    @staticmethod
+    def from_coords(coords: BoxCoords) -> "Box":
+        """Construct a Box from the given PDF coordinates."""
+        (x0, y0, x1, y1) = coords
+        return Box(x0, y0, x1, y1)
+
+    def get_coords(self) -> BoxCoords:
+        """Return the PDF coordinates of this box."""
+        return (self.x0, self.y0, self.x1, self.y1)
+
+    def get_width(self) -> float:
+        """Return the width of the box."""
+        return self.x1 - self.x0
+
+    def get_height(self) -> float:
+        """Return the height of the box."""
+        return self.y1 - self.y0
+
+    def get_overlap(self, other: "Box") -> float:
+        """Compute the overlapping area (if any) with the provided box."""
+        x_overlap = max(0, min(other.x1, self.x1) - max(other.x0, self.x0))
+        y_overlap = max(0, min(other.y1, self.y1) - max(other.y0, self.y0))
+        return x_overlap * y_overlap
+
+    def hit_item(self, item: LTComponent) -> bool:
+        """Does most of the area of the PDF component overlap this box?"""
+        item_area = float(item.width) * float(item.height)
+        overlap_area = self.get_overlap(Box.from_item(item))
+
+        if overlap_area != 0:
+            logger.debug(
+                "Box hit: '%s' %f-%f,%f-%f in %f-%f,%f-%f %2.0f%%",
+                item.get_text(),
+                item.x0, item.x1, item.y0, item.y1,
+                self.x0, self.x1, self.y0, self.y1,
+                100 * overlap_area / item_area)
+
+        assert overlap_area <= item_area
+        return (item_area != 0) and overlap_area >= (0.5 * item_area)
+
+    def closest_point(self, point: Point) -> Point:
+        """Compute the closest point in this box to the specified point."""
+        px, py = point
+        return (min(max(self.x0, px), self.x1),
+                min(max(self.y0, py), self.y1))
+
+    def square_of_distance_to_closest_point(self, point: Point) -> float:
+        """
+        Compute the distance from the closest point in this box to the specified point, squared.
+
+        (We avoid calling sqrt for performance reasons, since we just need to compare.)
+        """
+        x, y = self.closest_point(point)
+        px, py = point
+        return abs(px - x)**2 + abs(py - y)**2
+
+
 class Page:
     """
     Page.
@@ -27,11 +101,21 @@ class Page:
     annots: typing.List["Annotation"]
     outlines: typing.List["Outline"]
 
-    def __init__(self, pageno: int, objid: typing.Any):
+    def __init__(
+        self,
+        pageno: int,
+        objid: typing.Any,
+        mediabox: BoxCoords,
+        fixed_columns: typing.Optional[int] = None
+    ):
+        assert pageno >= 0
+        assert fixed_columns is None or fixed_columns > 0
         self.pageno = pageno
         self.objid = objid
         self.annots = []
         self.outlines = []
+        self.mediabox = Box.from_coords(mediabox)
+        self.fixed_columns = fixed_columns
 
     def __repr__(self) -> str:
         return ('<Page %d>' % self.pageno)
@@ -74,17 +158,27 @@ class Pos:
         if isinstance(other, Pos):
             if self.page == other.page:
                 assert self.page is other.page
-                assert self._pageseq != 0
-                assert other._pageseq != 0
-                if self._pageseq == other._pageseq:
-                    # The positions are on or closest to the same line of text.
-                    # XXX: assume top-to-bottom left-to-right order
-                    if self.y == other.y:
-                        return self.x < other.x
-                    else:
-                        return self.y > other.y
+                if self.page.fixed_columns:
+                    # Fixed layout: assume left-to-right top-to-bottom documents
+                    (sx, sy) = self.page.mediabox.closest_point((self.x, self.y))
+                    (ox, oy) = self.page.mediabox.closest_point((other.x, other.y))
+                    colwidth = self.page.mediabox.get_width() / self.page.fixed_columns
+                    self_col = (sx - self.page.mediabox.x0) // colwidth
+                    other_col = (ox - self.page.mediabox.x0) // colwidth
+                    return self_col < other_col or (self_col == other_col and sy > oy)
                 else:
-                    return self._pageseq < other._pageseq
+                    # Default layout inferred from pdfminer traversal
+                    assert self._pageseq != 0
+                    assert other._pageseq != 0
+                    if self._pageseq == other._pageseq:
+                        # The positions are on or closest to the same line of text.
+                        # XXX: assume top-to-bottom left-to-right order
+                        if self.y == other.y:
+                            return self.x < other.x
+                        else:
+                            return self.y > other.y
+                    else:
+                        return self._pageseq < other._pageseq
             else:
                 return self.page < other.page
         else:
@@ -109,66 +203,6 @@ class Pos:
             if self._pageseq == 0 or self._pageseq_distance > d:
                 self._pageseq = pageseq
                 self._pageseq_distance = d
-
-
-class Box:
-    """
-    Coordinates of a rectangular box.
-    """
-
-    def __init__(self, x0: float, y0: float, x1: float, y1: float):
-        assert x0 <= x1 and y0 <= y1
-        self.x0 = x0
-        self.x1 = x1
-        self.y0 = y0
-        self.y1 = y1
-
-    @staticmethod
-    def from_item(item: LTComponent) -> "Box":
-        """Construct a Box from the bounding box of a given PDF component."""
-        return Box(item.x0, item.y0, item.x1, item.y1)
-
-    def get_coords(self) -> BoxCoords:
-        """Return the PDF coordinates of this box."""
-        return (self.x0, self.y0, self.x1, self.y1)
-
-    def get_overlap(self, other: "Box") -> float:
-        """Compute the overlapping area (if any) with the provided box."""
-        x_overlap = max(0, min(other.x1, self.x1) - max(other.x0, self.x0))
-        y_overlap = max(0, min(other.y1, self.y1) - max(other.y0, self.y0))
-        return x_overlap * y_overlap
-
-    def hit_item(self, item: LTComponent) -> bool:
-        """Does most of the area of the PDF component overlap this box?"""
-        item_area = float(item.width) * float(item.height)
-        overlap_area = self.get_overlap(Box.from_item(item))
-
-        if overlap_area != 0:
-            logger.debug(
-                "Box hit: '%s' %f-%f,%f-%f in %f-%f,%f-%f %2.0f%%",
-                item.get_text(),
-                item.x0, item.x1, item.y0, item.y1,
-                self.x0, self.x1, self.y0, self.y1,
-                100 * overlap_area / item_area)
-
-        assert overlap_area <= item_area
-        return (item_area != 0) and overlap_area >= (0.5 * item_area)
-
-    def closest_point(self, point: Point) -> Point:
-        """Compute the closest point in this box to the specified point."""
-        px, py = point
-        return (min(max(self.x0, px), self.x1),
-                min(max(self.y0, py), self.y1))
-
-    def square_of_distance_to_closest_point(self, point: Point) -> float:
-        """
-        Compute the distance from the closest point in this box to the specified point, squared.
-
-        (We avoid calling sqrt for performance reasons, since we just need to compare.)
-        """
-        x, y = self.closest_point(point)
-        px, py = point
-        return abs(px - x)**2 + abs(py - y)**2
 
 
 class ObjectWithPos:

@@ -27,13 +27,15 @@ class UnitTests(unittest.TestCase):
 
 
 class ExtractionTestBase(unittest.TestCase):
-    # Permit a test to customise the LAParams
+    # Permit a test to customise the columns_per_page or LAParams
+    columns_per_page = None
     laparams = pdfminer.layout.LAParams()
 
     def setUp(self):
         path = pathlib.Path(__file__).parent / 'tests' / self.filename
         with path.open('rb') as f:
-            self.pages = pdfannots.process_file(f, laparams=self.laparams)
+            self.pages = pdfannots.process_file(f, columns_per_page=self.columns_per_page,
+                                                laparams=self.laparams)
             self.annots = [a for p in self.pages for a in p.annots]
             self.outlines = [o for p in self.pages for o in p.outlines]
 
@@ -119,14 +121,17 @@ class Pr24(ExtractionTestBase):
 
 class PrinterTestBase(unittest.TestCase):
     filename = 'hotos17.pdf'
+    columns_per_page = None
 
     def setUp(self):
         path = pathlib.Path(__file__).parent / 'tests' / self.filename
         with path.open('rb') as f:
-            self.pages = pdfannots.process_file(f)
+            self.pages = pdfannots.process_file(f, columns_per_page=self.columns_per_page)
 
 
 class MarkdownPrinterTest(PrinterTestBase):
+    columns_per_page = 2  # for test_nearest_outline
+
     # There's not a whole lot of value in testing the precise output format,
     # but let's make sure we produce a non-trivial result and don't crash.
     def test_flat(self):
@@ -163,6 +168,25 @@ class MarkdownPrinterTest(PrinterTestBase):
 
         self.assertGreater(linecount, 10)
         self.assertGreater(charcount, 900)
+
+    def test_nearest_outline(self):
+        args = argparse.Namespace()
+        args.printfilename = False
+        args.wrap = None
+        args.condense = False
+
+        p = MarkdownPrinter(args)
+
+        # Page 1 (Introduction) Squiggly: "recent Intel CPUs have introduced"
+        o = p.nearest_outline(self.pages, self.pages[0].annots[0].pos)
+        self.assertIsNotNone(o)
+        self.assertEqual(o.title, 'Introduction')
+
+        # Page 4 (Case study: CET) Squiggly: "Control transfer in x86 is already very complex"
+        # Note: pdfminer gets this wrong as of 20201018; we must set columns_per_page to fix it
+        o = p.nearest_outline(self.pages, self.pages[3].annots[0].pos)
+        self.assertIsNotNone(o)
+        self.assertEqual(o.title, 'Case study: CET')
 
 
 if __name__ == "__main__":

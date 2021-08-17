@@ -32,6 +32,9 @@ def parse_args() -> typing.Tuple[argparse.Namespace, LAParams]:
                    help="emit progress information to stderr")
     g.add_argument("-o", metavar="OUTFILE", type=argparse.FileType("w"), dest="output",
                    default=sys.stdout, help="output file (default is stdout)")
+    g.add_argument("-n", "--cols", default=None, type=int, metavar="COLS", dest="cols",
+                   help="Assume a fixed top-to-bottom left-to-right page layout with this many "
+                        "columns per page. If unset, PDFMiner's layout detection logic is used.")
 
     g = p.add_argument_group('Options controlling output format')
     g.add_argument("-s", "--sections", metavar="SEC", nargs="*",
@@ -113,6 +116,7 @@ def main() -> None:
     for file in args.input:
         pages = process_file(
             file,
+            args.cols,
             emit_progress_to=(sys.stderr if args.progress else None),
             laparams=laparams)
         for line in printer(file.name, pages):

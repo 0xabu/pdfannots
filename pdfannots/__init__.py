@@ -211,6 +211,7 @@ class _PDFProcessor(PDFLayoutAnalyzer):  # type:ignore
 
 def process_file(
     file: typing.BinaryIO,
+    columns_per_page: typing.Optional[int] = None,
     emit_progress_to: typing.Optional[typing.TextIO] = None,
     laparams: LAParams = LAParams()
 ) -> typing.List[Page]:
@@ -219,6 +220,7 @@ def process_file(
 
     Arguments:
         file                Handle to PDF file
+        columns_per_page    If set, overrides PDF Miner's layout detect with a fixed page layout
         emit_progress_to    If set, file handle (e.g. sys.stderr) to which progress is reported
         laparams            PDF Miner layout parameters
 
@@ -262,7 +264,7 @@ def process_file(
     for (pageno, pdfpage) in enumerate(PDFPage.create_pages(doc)):
         emit_progress(" %d" % (pageno + 1))
 
-        page = Page(pageno, pdfpage.pageid)
+        page = Page(pageno, pdfpage.pageid, pdfpage.mediabox, columns_per_page)
         pages.append(page)
 
         # Resolve any outlines referring to this page, and link them to the page.
