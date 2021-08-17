@@ -120,11 +120,20 @@ def main() -> None:
     elif args.format == "json":
         printer = JsonPrinter(args)
 
+    def write_if_nonempty(s: str) -> None:
+        if s:
+            args.output.write(s)
+
+    write_if_nonempty(printer.begin())
+
+    # iterate over files
     for file in args.input:
         doc = process_file(
             file,
             args.cols,
             emit_progress_to=(sys.stderr if args.progress else None),
             laparams=laparams)
-        for line in printer(file.name, doc):
+        for line in printer.print_file(file.name, doc):
             args.output.write(line)
+
+    write_if_nonempty(printer.end())

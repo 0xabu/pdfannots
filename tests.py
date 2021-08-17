@@ -3,12 +3,16 @@
 
 import argparse
 from datetime import datetime, timedelta, timezone
+import functools
+import json
 import unittest
+import operator
 import pathlib
 import pdfminer.layout
 import pdfannots
 import pdfannots.utils
 from pdfannots.printer.markdown import MarkdownPrinter, GroupedMarkdownPrinter
+from pdfannots.printer.json import JsonPrinter
 
 
 class UnitTests(unittest.TestCase):
@@ -154,7 +158,7 @@ class MarkdownPrinterTest(PrinterTestBase):
 
         linecount = 0
         charcount = 0
-        for line in p('dummyfile', self.doc):
+        for line in p.print_file('dummyfile', self.doc):
             linecount += line.count('\n')
             charcount += len(line)
 
@@ -172,12 +176,44 @@ class MarkdownPrinterTest(PrinterTestBase):
 
         linecount = 0
         charcount = 0
-        for line in p('dummyfile', self.doc):
+        for line in p.print_file('dummyfile', self.doc):
             linecount += line.count('\n')
             charcount += len(line)
 
         self.assertGreater(linecount, 10)
         self.assertGreater(charcount, 900)
+
+
+class JsonPrinterTest(PrinterTestBase):
+    def test_flat(self):
+        args = argparse.Namespace()
+        args.printfilename = False
+        p = JsonPrinter(args)
+
+        j = json.loads(
+            p.begin()
+            + functools.reduce(operator.add, p.print_file('dummyfile', self.doc))
+            + p.end())
+
+        self.assertTrue(isinstance(j, list))
+        self.assertEqual(len(j), 8)
+
+    def test_files(self):
+        args = argparse.Namespace()
+        args.printfilename = True
+        p = JsonPrinter(args)
+
+        # print the same file twice
+        s = p.begin()
+        for _ in range(2):
+            s += functools.reduce(operator.add, p.print_file('dummyfile', self.doc))
+        s += p.end()
+
+        j = json.loads(s)
+
+        self.assertTrue(isinstance(j, list))
+        self.assertEqual(len(j), 2)
+        self.assertEqual(j[0], j[1])
 
 
 if __name__ == "__main__":

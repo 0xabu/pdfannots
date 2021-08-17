@@ -36,7 +36,7 @@ class MarkdownPrinter(Printer):
                 initial_indent=self.QUOTE_INDENT,
                 subsequent_indent=self.QUOTE_INDENT)
 
-    def __call__(
+    def print_file(
         self,
         filename: str,
         document: Document
