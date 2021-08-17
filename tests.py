@@ -61,7 +61,7 @@ class ExtractionTests(ExtractionTestBase):
         self.assertEqual(len(self.annots), len(EXPECTED))
         for a, expected in zip(self.annots, EXPECTED):
             self.assertEqual(
-                (a.page.pageno, a.tagname, a.contents, a.gettext()), expected)
+                (a.pos.page.pageno, a.tagname, a.contents, a.gettext()), expected)
         self.assertEqual(self.annots[0].created, datetime(
             2019, 1, 19, 21, 29, 42, tzinfo=timezone(-timedelta(hours=8))))
 

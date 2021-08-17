@@ -4,7 +4,7 @@ import textwrap
 import typing
 
 from . import Printer
-from ..types import Pos, Outline, Annotation, Page
+from ..types import Pos, ObjectWithPos, Outline, Annotation, Page
 
 
 class MarkdownPrinter(Printer):
@@ -69,7 +69,7 @@ class MarkdownPrinter(Printer):
             assert page.pageno == pageno
 
             # Outlines are pre-sorted, so we can use bisect to find the first outline < pos
-            idx = bisect.bisect(page.outlines, pos)
+            idx = bisect.bisect(page.outlines, ObjectWithPos(pos))
             if idx:
                 return page.outlines[idx - 1]
 
@@ -77,15 +77,15 @@ class MarkdownPrinter(Printer):
 
     def format_pos(
         self,
-        annot: Annotation,
+        pos: Pos,
         pages: typing.Sequence[Page]
     ) -> str:
 
-        o = self.nearest_outline(pages, annot.startpos) if annot.startpos else None
+        o = self.nearest_outline(pages, pos)
         if o:
-            return "Page %d (%s)" % (annot.page.pageno + 1, o.title)
+            return "Page %d (%s)" % (pos.page.pageno + 1, o.title)
         else:
-            return "Page %d" % (annot.page.pageno + 1)
+            return "Page %d" % (pos.page.pageno + 1)
 
     def format_bullet(
         self,
@@ -148,7 +148,8 @@ class MarkdownPrinter(Printer):
         assert text or comment
 
         # compute the formatted position (and extra bit if needed) as a label
-        label = self.format_pos(annot, pages) + \
+        assert annot.pos is not None
+        label = self.format_pos(annot.pos, pages) + \
             (" " + extra if extra else "") + ":"
 
         # If we have short (single-paragraph, few words) text with a short or no

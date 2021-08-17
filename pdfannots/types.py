@@ -87,8 +87,6 @@ class Pos:
                     return self._pageseq < other._pageseq
             else:
                 return self.page < other.page
-        elif isinstance(other, Outline):
-            return self < other.pos
         else:
             return NotImplemented
 
@@ -173,14 +171,32 @@ class Box:
         return abs(px - x)**2 + abs(py - y)**2
 
 
-class Annotation:
+class ObjectWithPos:
+    """Any object that (eventually) has a logical position on the page."""
+
+    def __init__(self, pos: typing.Optional[Pos] = None):
+        self.pos = pos
+
+    def __lt__(self, other: typing.Any) -> bool:
+        if isinstance(other, ObjectWithPos):
+            assert self.pos is not None
+            assert other.pos is not None
+            return self.pos < other.pos
+        return NotImplemented
+
+    def update_pageseq(self, line: LTTextLine, pageseq: int) -> None:
+        """Delegates to Pos.update_pageseq"""
+        if self.pos is not None:
+            self.pos.update_pageseq(line, pageseq)
+
+
+class Annotation(ObjectWithPos):
     """A PDF annotation, and its extracted text."""
 
     contents: typing.Optional[str]
     boxes: typing.List[Box]
     rect: typing.Optional[BoxCoords]
     text: str
-    startpos: typing.Optional[Pos]
 
     def __init__(
             self,
@@ -191,18 +207,9 @@ class Annotation:
             contents: typing.Optional[str] = None,
             author: typing.Optional[str] = None,
             created: typing.Optional[datetime.datetime] = None):
-        self.page = page
-        self.tagname = tagname
-        if contents == '':
-            self.contents = None
-        else:
-            self.contents = contents
-        self.rect = rect
-        self.author = author
-        self.created = created
-        self.text = ''
 
-        self.boxes = []
+        # Construct boxes from coords
+        boxes = []
         if coords:
             assert len(coords) % 8 == 0
             while coords != []:
@@ -211,13 +218,27 @@ class Annotation:
                 xvals = [x0, x1, x2, x3]
                 yvals = [y0, y1, y2, y3]
                 box = Box(min(xvals), min(yvals), max(xvals), max(yvals))
-                self.boxes.append(box)
+                boxes.append(box)
 
-        self._setstartpos()
+        # Compute a meaningful position of this annotation on the page
+        assert rect or boxes
+        (x0, y0, x1, y1) = rect if rect else boxes[0].get_coords()
+        # XXX: assume left-to-right top-to-bottom text
+        pos = Pos(page, min(x0, x1), max(y0, y1))
+        super().__init__(pos)
+
+        # Initialise the attributes
+        self.tagname = tagname
+        self.contents = contents if contents else None
+        self.rect = rect
+        self.author = author
+        self.created = created
+        self.text = ''
+        self.boxes = boxes
 
     def __repr__(self) -> str:
         return ('<Annotation %s %r%s%s>' %
-                (self.tagname, self.startpos,
+                (self.tagname, self.pos,
                  " '%s'" % self.contents[:10] if self.contents else '',
                  " '%s'" % self.text[:10] if self.text else ''))
 
@@ -246,35 +267,17 @@ class Annotation:
                 return cleanup_text(self.text.strip())
             else:
                 # something's strange -- we have boxes but no text for them
-                logger.warning('Missing text for %s annotation at %s', self.tagname, self.startpos)
+                logger.warning('Missing text for %s annotation at %s', self.tagname, self.pos)
                 return ""
         else:
             return None
-
-    def _setstartpos(self) -> None:
-        if self.rect:
-            (x0, y0, x1, y1) = self.rect
-        elif self.boxes:
-            (x0, y0, x1, y1) = self.boxes[0].get_coords()
-        else:
-            return
-        # XXX: assume left-to-right top-to-bottom text
-        self.startpos = Pos(self.page, min(x0, x1), max(y0, y1))
-
-    def __lt__(self, other: typing.Any) -> bool:
-        if isinstance(other, Annotation):
-            mypos = self.startpos
-            otherpos = other.startpos
-            if mypos is not None and otherpos is not None:
-                return mypos < otherpos
-        return NotImplemented
 
 
 UnresolvedPage = typing.Union[int, PDFObjRef]
 """A reference to a page that is *either* a page number, or a PDF object ID."""
 
 
-class Outline:
+class Outline(ObjectWithPos):
     """
     A PDF outline (also known as a bookmark).
 
@@ -285,7 +288,6 @@ class Outline:
     page number, or a PDF object ID. While rendering the PDF, the page is
     resolved to a Page object, and the pos attribute is updated.
     """
-    pos: typing.Optional[Pos]
 
     def __init__(
         self,
@@ -293,10 +295,10 @@ class Outline:
         pageref: UnresolvedPage,
         target: typing.Tuple[float, float]
     ):
+        super().__init__()
         self.title = title
         self.pageref = pageref
         self.target = target
-        self.pos = None
 
     def __repr__(self) -> str:
         return ('<Outline \'%s\' %r>' % (self.title, self.pos))
@@ -311,13 +313,3 @@ class Outline:
 
         targetx, targety = self.target
         self.pos = Pos(page, targetx, targety)
-
-    def __lt__(self, other: typing.Any) -> bool:
-        if isinstance(other, Outline):
-            assert self.pos is not None
-            assert other.pos is not None
-            return self.pos < other.pos
-        elif isinstance(other, Pos):
-            assert self.pos is not None
-            return self.pos < other
-        return NotImplemented

@@ -5,6 +5,7 @@ Extracts annotations from a PDF file in markdown format for use in reviewing.
 __version__ = '0.1'
 
 import collections
+import itertools
 import logging
 import typing
 
@@ -35,7 +36,12 @@ def _mkannotation(
     pa: typing.Any,
     page: Page
 ) -> typing.Optional[Annotation]:
-    """Given a PDF annotation, capture relevant fields and construct an Annotation object."""
+    """
+    Given a PDF annotation, capture relevant fields and construct an Annotation object.
+
+    Refer to Section 8.4 of the PDF spec:
+    https://www.adobe.com/content/dam/acom/en/devnet/pdf/pdfs/pdf_reference_archives/PDFReference.pdf
+    """
 
     subtype = pa.get('Subtype')
     if subtype is None or subtype.name not in ANNOT_SUBTYPES:
@@ -138,13 +144,8 @@ class _PDFProcessor(PDFLayoutAnalyzer):  # type:ignore
         assert self.page is not None
         self.pageseq += 1
 
-        for a in self.page.annots:
-            if a.startpos is not None:
-                a.startpos.update_pageseq(line, self.pageseq)
-
-        for o in self.page.outlines:
-            assert o.pos is not None
-            o.pos.update_pageseq(line, self.pageseq)
+        for x in itertools.chain(self.page.annots, self.page.outlines):
+            x.update_pageseq(line, self.pageseq)
 
     def testboxes(self, item: LTComponent) -> typing.AbstractSet[Annotation]:
         """Return the set of annotations whose boxes intersect with the area of the given item."""
