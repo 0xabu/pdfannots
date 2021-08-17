@@ -1,5 +1,5 @@
 """
-Extracts annotations from a PDF file in markdown format for use in reviewing.
+Tool to extract and pretty-print PDF annotations for reviewing.
 """
 
 __version__ = '0.1'

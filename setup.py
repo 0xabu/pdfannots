@@ -18,7 +18,7 @@ def main() -> None:
     setup(
         name=name,
         version=get_version_from_file(here / name / '__init__.py'),
-        description='Tool to extract PDF annotations as markdown for reviewing',
+        description='Tool to extract and pretty-print PDF annotations for reviewing',
         long_description=(here / 'README.md').read_text(),
         long_description_content_type='text/markdown',
         url='https://github.com/0xabu/pdfannots',
