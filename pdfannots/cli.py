@@ -6,7 +6,9 @@ import typing
 from pdfminer.layout import LAParams
 
 from . import __doc__, __version__, process_file
+from .printer import Printer
 from .printer.markdown import MarkdownPrinter, GroupedMarkdownPrinter
+from .printer.json import JsonPrinter
 
 
 def _float_or_disabled(x: str) -> typing.Optional[float]:
@@ -35,8 +37,10 @@ def parse_args() -> typing.Tuple[argparse.Namespace, LAParams]:
     g.add_argument("-n", "--cols", default=None, type=int, metavar="COLS", dest="cols",
                    help="Assume a fixed top-to-bottom left-to-right page layout with this many "
                         "columns per page. If unset, PDFMiner's layout detection logic is used.")
+    g.add_argument("-f", "--format", choices=["md", "json"], default="md",
+                   help="output format (default: markdown)")
 
-    g = p.add_argument_group('Options controlling output format')
+    g = p.add_argument_group('Options controlling markdown output format')
     g.add_argument("-s", "--sections", metavar="SEC", nargs="*",
                    choices=GroupedMarkdownPrinter.ALL_SECTIONS,
                    default=GroupedMarkdownPrinter.ALL_SECTIONS,
@@ -109,9 +113,12 @@ def main() -> None:
     logging.basicConfig(format='%(levelname)s: %(message)s',
                         level=logging.WARNING)
 
-    # construct Printer instance
-    # TODO: replace with appropriate factory logic
-    printer = (GroupedMarkdownPrinter if args.group else MarkdownPrinter)(args)
+    # construct appropriate Printer
+    printer: Printer
+    if args.format == "md":
+        printer = (GroupedMarkdownPrinter if args.group else MarkdownPrinter)(args)
+    elif args.format == "json":
+        printer = JsonPrinter(args)
 
     for file in args.input:
         doc = process_file(

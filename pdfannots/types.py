@@ -228,11 +228,19 @@ class ObjectWithPos:
 
 
 class Annotation(ObjectWithPos):
-    """A PDF annotation, and its extracted text."""
+    """
+    A PDF annotation, and its extracted text.
+
+    Attributes:
+        tagname     PDF annotation type
+        contents    Contents of the annotation in the PDF (e.g. comment/description)
+        text        Captured text (but see gettext() for a cleaner form)
+        author      Author of the annotation
+        created     Timestamp the annotation was created
+    """
 
     contents: typing.Optional[str]
     boxes: typing.List[Box]
-    rect: typing.Optional[BoxCoords]
     text: str
 
     def __init__(
@@ -267,7 +275,6 @@ class Annotation(ObjectWithPos):
         # Initialise the attributes
         self.tagname = tagname
         self.contents = contents if contents else None
-        self.rect = rect
         self.author = author
         self.created = created
         self.text = ''
