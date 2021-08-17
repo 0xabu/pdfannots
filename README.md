@@ -63,7 +63,7 @@ options and invocation.
    with LaTeX multi-column documents (e.g. "soft-`\n`ware" becomes "software"),
    but sometimes the hyphen needs to stay (e.g. "memory-`\n`mapped", which will be
    extracted as "memorymapped"), and we can't tell the difference. To disable
-   this behaviour, pass `--keep-hypens`.
+   this behaviour, pass `--keep-hyphens`.
 
 
 ## Dependencies
