@@ -22,6 +22,8 @@ def main() -> None:
         long_description=(here / 'README.md').read_text(),
         long_description_content_type='text/markdown',
         url='https://github.com/0xabu/pdfannots',
+        author='Andrew Baumann',
+        author_email='pdfannots.pypi.org@ab.id.au',
         classifiers=[
             'Intended Audience :: Science/Research',
             'Topic :: Text Processing',
