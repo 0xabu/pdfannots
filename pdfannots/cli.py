@@ -62,25 +62,25 @@ def parse_args() -> typing.Tuple[argparse.Namespace, LAParams]:
     laparams = LAParams()
     g.add_argument(
         "--line-overlap", metavar="REL_HEIGHT", type=float, default=laparams.line_overlap,
-        help="If two characters have more overlap than this they are "
-             "considered to be on the same line. The overlap is specified "
-             "relative to the minimum height of both characters.")
+        help="If two characters have more overlap than this they are considered to be "
+             "on the same line. The overlap is specified relative to the minimum height "
+             "of both characters. Default: %s" % laparams.line_overlap)
     g.add_argument(
         "--char-margin", metavar="REL_WIDTH", type=float, default=laparams.char_margin,
         help="If two characters are closer together than this margin they "
              "are considered to be part of the same line. The margin is "
-             "specified relative to the width of the character.")
+             "specified relative to the character width. Default: %s" % laparams.char_margin)
     g.add_argument(
         "--word-margin", metavar="REL_WIDTH", type=float, default=laparams.word_margin,
         help="If two characters on the same line are further apart than this "
              "margin then they are considered to be two separate words, and "
              "an intermediate space will be added for readability. The margin "
-             "is specified relative to the width of the character.")
+             "is specified relative to the character width. Default: %s" % laparams.word_margin)
     g.add_argument(
         "--line-margin", metavar="REL_HEIGHT", type=float, default=laparams.line_margin,
         help="If two lines are are close together they are considered to "
              "be part of the same paragraph. The margin is specified "
-             "relative to the height of a line.")
+             "relative to the height of a line. Default: %s" % laparams.line_margin)
     g.add_argument(
         "--boxes-flow", type=_float_or_disabled, default=laparams.boxes_flow,
         help="Specifies how much a horizontal and vertical position of a "
@@ -89,15 +89,19 @@ def parse_args() -> typing.Tuple[argparse.Namespace, LAParams]:
              "matters) to +1.0 (only vertical position matters). You can also "
              "pass 'disabled' to disable advanced layout analysis, and "
              "instead return text based on the position of the bottom left "
-             "corner of the text box.")
+             "corner of the text box. Default: %s" % laparams.boxes_flow)
+
+    # The next two booleans are described as if they default off, so let's ensure that.
+    assert not laparams.detect_vertical
+    assert not laparams.all_texts
     g.add_argument(
         "--detect-vertical", default=laparams.detect_vertical,
         action="store_const", const=(not laparams.detect_vertical),
-        help="Whether vertical text should be considered during layout analysis")
+        help="Consider vertical text during layout analysis.")
     g.add_argument(
         "--all-texts", default=laparams.all_texts,
         action="store_const", const=(not laparams.all_texts),
-        help="Whether layout analysis should be performed on text in figures.")
+        help="Perform layout analysis on text in figures.")
 
     args = p.parse_args()
 
