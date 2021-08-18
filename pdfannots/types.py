@@ -7,7 +7,7 @@ import typing
 from pdfminer.layout import LTComponent, LTTextLine
 from pdfminer.pdftypes import PDFObjRef
 
-from .utils import cleanup_text
+from .utils import cleanup_text, merge_lines
 
 logger = logging.getLogger('pdfannots')
 
@@ -248,7 +248,7 @@ class Annotation(ObjectWithPos):
 
     contents: typing.Optional[str]
     boxes: typing.List[Box]
-    text: str
+    text: typing.List[str]
 
     def __init__(
             self,
@@ -284,42 +284,25 @@ class Annotation(ObjectWithPos):
         self.contents = contents if contents else None
         self.author = author
         self.created = created
-        self.text = ''
+        self.text = []
         self.boxes = boxes
 
     def __repr__(self) -> str:
         return ('<Annotation %s %r%s%s>' %
                 (self.subtype.name, self.pos,
                  " '%s'" % self.contents[:10] if self.contents else '',
-                 " '%s'" % self.text[:10] if self.text else ''))
+                 " '%s'" % ''.join(self.text[:10]) if self.text else ''))
 
-    def capture(self, text: str, remove_hyphen: bool = False) -> None:
+    def capture(self, text: str) -> None:
         """Capture text (while rendering the PDF page)."""
-        if text == '\n':
-            if (len(self.text) >= 2
-                    and self.text[-1] == '-'       # Line ends in an apparent hyphen
-                    and self.text[-2].islower()):  # Prior character was a lowercase letter
-                # We have a likely hyphen. Remove it if desired.
-                if remove_hyphen:
-                    self.text = self.text[:-1]
+        self.text.append(text)
 
-            # Join lines, treating newlines as space, while ignoring successive
-            # newlines. This makes it easier for the for the renderer to
-            # "broadcast" LTAnno newlines to active annotations regardless of
-            # box hits. (Detecting paragraph breaks is tricky anyway, and left
-            # for future work!)
-            elif not self.text.endswith(' '):
-                self.text += ' '
-        else:
-            assert not remove_hyphen
-            self.text += text
-
-    def gettext(self) -> typing.Optional[str]:
+    def gettext(self, remove_hyphens: bool = False) -> typing.Optional[str]:
         """Retrieve cleaned-up text, after rendering."""
         if self.boxes:
             if self.text:
-                # replace tex ligatures (and other common odd characters)
-                return cleanup_text(self.text.strip())
+                captured = ''.join(self.text)
+                return cleanup_text(merge_lines(captured, remove_hyphens))
             else:
                 # something's strange -- we have boxes but no text for them
                 logger.warning('Missing text for %s annotation at %s', self.subtype.name, self.pos)

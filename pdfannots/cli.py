@@ -136,7 +136,6 @@ def main() -> None:
         doc = process_file(
             file,
             columns_per_page=args.cols,
-            remove_hyphens=args.remove_hyphens,
             emit_progress_to=(sys.stderr if args.progress else None),
             laparams=laparams)
         for line in printer.print_file(file.name, doc):

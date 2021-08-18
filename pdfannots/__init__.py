@@ -124,9 +124,8 @@ class _PDFProcessor(PDFLayoutAnalyzer):  # type:ignore
     _lasthit: typing.FrozenSet[Annotation]
     _curline: typing.Set[Annotation]
 
-    def __init__(self, rsrcmgr: PDFResourceManager, laparams: LAParams, remove_hyphens: bool):
+    def __init__(self, rsrcmgr: PDFResourceManager, laparams: LAParams):
         super().__init__(rsrcmgr, laparams=laparams)
-        self.remove_hyphens = remove_hyphens
         self.page = None
         self.pageseq = 0
 
@@ -169,7 +168,7 @@ class _PDFProcessor(PDFLayoutAnalyzer):  # type:ignore
         most recent character on the line was not covered by their boxes.
         """
         for a in self._curline:
-            a.capture('\n', self.remove_hyphens)
+            a.capture('\n')
         self._curline = set()
 
     def render(self, item: LTItem) -> None:
@@ -214,7 +213,6 @@ class _PDFProcessor(PDFLayoutAnalyzer):  # type:ignore
 def process_file(
     file: typing.BinaryIO,
     *,  # Subsequent arguments are keyword-only
-    remove_hyphens: bool = True,
     columns_per_page: typing.Optional[int] = None,
     emit_progress_to: typing.Optional[typing.TextIO] = None,
     laparams: LAParams = LAParams()
@@ -224,7 +222,6 @@ def process_file(
 
     Arguments:
         file                Handle to PDF file
-        remove_hyphens      Whether to remove hyphens when capturing text across a line break
         columns_per_page    If set, overrides PDF Miner's layout detect with a fixed page layout
         emit_progress_to    If set, file handle (e.g. sys.stderr) to which progress is reported
         laparams            PDF Miner layout parameters
@@ -232,7 +229,7 @@ def process_file(
 
     # Initialise PDFMiner state
     rsrcmgr = PDFResourceManager()
-    device = _PDFProcessor(rsrcmgr, laparams, remove_hyphens)
+    device = _PDFProcessor(rsrcmgr, laparams)
     interpreter = PDFPageInterpreter(rsrcmgr, device)
     parser = PDFParser(file)
     doc = PDFDocument(parser)

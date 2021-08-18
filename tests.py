@@ -75,7 +75,8 @@ class ExtractionTests(ExtractionTestBase):
         for a, expected in zip(self.annots, EXPECTED):
             assert a.pos is not None
             self.assertEqual(
-                (a.pos.page.pageno, a.subtype, a.contents, a.gettext()), expected)
+                (a.pos.page.pageno, a.subtype, a.contents, a.gettext(remove_hyphens=True)),
+                expected)
         self.assertEqual(self.annots[0].created, datetime(
             2019, 1, 19, 21, 29, 42, tzinfo=timezone(-timedelta(hours=8))))
 
@@ -162,6 +163,7 @@ class MarkdownPrinterTest(PrinterTestBase):
     def test_flat(self) -> None:
         args = argparse.Namespace()
         args.printfilename = True
+        args.remove_hyphens = False
         args.wrap = None
         args.condense = True
 
@@ -179,6 +181,7 @@ class MarkdownPrinterTest(PrinterTestBase):
     def test_grouped(self) -> None:
         args = argparse.Namespace()
         args.printfilename = False
+        args.remove_hyphens = True
         args.wrap = 80
         args.condense = True
         args.sections = GroupedMarkdownPrinter.ALL_SECTIONS
@@ -199,6 +202,7 @@ class JsonPrinterTest(PrinterTestBase):
     def test_flat(self) -> None:
         args = argparse.Namespace()
         args.printfilename = False
+        args.remove_hyphens = False
         p = JsonPrinter(args)
 
         j = json.loads(
@@ -212,6 +216,7 @@ class JsonPrinterTest(PrinterTestBase):
     def test_files(self) -> None:
         args = argparse.Namespace()
         args.printfilename = True
+        args.remove_hyphens = False
         p = JsonPrinter(args)
 
         # print the same file twice

@@ -13,7 +13,8 @@ class MarkdownPrinter(Printer):
 
     def __init__(self, args: argparse.Namespace):
         super().__init__(args)
-        self.printfilename = args.printfilename  # Whether to print file names
+        self.printfilename = args.printfilename    # Whether to print file names
+        self.remove_hyphens = args.remove_hyphens  # Whether to remove hyphens across a line break
         self.wrapcol = args.wrap       # Column at which output is word-wrapped
         self.condense = args.condense  # Permit use of the condensed format
 
@@ -118,10 +119,8 @@ class MarkdownPrinter(Printer):
         extra: typing.Optional[str] = None
     ) -> str:
 
-        # capture item text and contents (i.e. the comment), and split each into paragraphs
-        rawtext = annot.gettext()
-        text = ([l for l in rawtext.strip().splitlines() if l]
-                if rawtext else [])
+        # capture item text and contents (i.e. the comment), and split the latter into paragraphs
+        text = annot.gettext(self.remove_hyphens) or ''
         comment = ([l for l in annot.contents.splitlines() if l]
                    if annot.contents else [])
 
@@ -134,16 +133,15 @@ class MarkdownPrinter(Printer):
         label = self.format_pos(annot.pos, document) + \
             (" " + extra if extra else "") + ":"
 
-        # If we have short (single-paragraph, few words) text with a short or no
-        # comment, and the text contains no embedded full stops or quotes, then
-        # we'll just put quotation marks around the text and merge the two into
-        # a single paragraph.
+        # If we have short (few words) text with a short or no comment, and the
+        # text contains no embedded full stops or quotes, then we'll just put
+        # quotation marks around the text and merge the two into a single paragraph.
         if (self.condense
-            and len(text) == 1
-            and len(text[0].split()) <= 10  # words
-            and all([x not in text[0] for x in ['"', '. ']])
+            and text
+            and len(text.split()) <= 10  # words
+            and all([x not in text for x in ['"', '. ']])
                 and (not comment or len(comment) == 1)):
-            msg = label + ' "' + text[0] + '"'
+            msg = label + ' "' + text + '"'
             if comment:
                 msg = msg + ' -- ' + comment[0]
             return self.format_bullet([msg]) + "\n\n"
@@ -157,8 +155,8 @@ class MarkdownPrinter(Printer):
         # Otherwise, text (if any) turns into a blockquote, and the comment (if
         # any) into subsequent paragraphs.
         else:
-            msgparas = [label] + text + comment
-            quotepos = (1, len(text)) if text else None
+            msgparas = [label] + [text] + comment
+            quotepos = (1, 1) if text else None
             return self.format_bullet(msgparas, quotepos) + "\n\n"
 
     def emit_body(
