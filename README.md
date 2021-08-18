@@ -29,7 +29,7 @@ section in the document the annotation refers.
 
 ## Usage
 
-See `pdfannots --help` (in a source tree: `python3 -m pdfannots --help`) for
+See `pdfannots --help` (in a source tree: `pdfannots.py --help`) for
 options and invocation.
 
 
@@ -52,7 +52,7 @@ options and invocation.
       text at the end of the first column. This causes pdfannots to return the
       annotations out of order, or to report the wrong outlines (section
       headings) for annotations. You can work around this issue by using the
-      `--cols` parameter to assume a fixed page layout for the document (e.g. 1
+      `--cols` parameter to force a fixed page layout for the document (e.g. 1
       or 2-column).
 
  * The output from strikeout annotations is not very meaningful (there's no
