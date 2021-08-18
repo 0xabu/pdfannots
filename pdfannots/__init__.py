@@ -9,9 +9,6 @@ import itertools
 import logging
 import typing
 
-from .types import Page, Outline, Annotation, Document
-from .utils import cleanup_text, decode_datetime
-
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
 from pdfminer.layout import (
@@ -20,9 +17,12 @@ from pdfminer.converter import PDFLayoutAnalyzer
 from pdfminer.pdfparser import PDFParser
 from pdfminer.pdfdocument import PDFDocument, PDFNoOutlines
 from pdfminer.psparser import PSLiteralTable, PSLiteral
-import pdfminer.pdftypes as pdftypes
+from pdfminer import pdftypes
 import pdfminer.settings
 import pdfminer.utils
+
+from .types import Page, Outline, Annotation, Document
+from .utils import cleanup_text, decode_datetime
 
 pdfminer.settings.STRICT = False
 
@@ -101,7 +101,7 @@ def _get_outlines(doc: PDFDocument) -> typing.Iterator[Outline]:
         if dest[1] is PSLiteralTable.intern('XYZ'):
             (pageref, _, targetx, targety) = dest[:4]
 
-            if type(pageref) is int or isinstance(pageref, pdftypes.PDFObjRef):
+            if isinstance(pageref, (int, pdftypes.PDFObjRef)):
                 yield Outline(title, pageref, (targetx, targety))
             else:
                 logger.warning("Unsupported pageref in outline: %s", pageref)
@@ -252,7 +252,7 @@ def process_file(
 
     try:
         for o in _get_outlines(doc):
-            if type(o.pageref) is pdftypes.PDFObjRef:
+            if isinstance(o.pageref, pdftypes.PDFObjRef):
                 outlines_by_objid[o.pageref.objid].append(o)
             else:
                 outlines_by_pageno[o.pageref].append(o)

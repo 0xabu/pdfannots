@@ -53,7 +53,7 @@ class JsonPrinter(Printer):
     def print_file(
         self,
         filename: str,
-        doc: Document
+        document: Document
     ) -> typing.Iterator[str]:
 
         # insert a , between successive files
@@ -68,7 +68,7 @@ class JsonPrinter(Printer):
         else:
             self.seen_first = True
 
-        annot_dicts = [annot_to_dict(doc, a) for a in doc.iter_annots()]
+        annot_dicts = [annot_to_dict(document, a) for a in document.iter_annots()]
 
         if self.printfilename:
             dictobj = {

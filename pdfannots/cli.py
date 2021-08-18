@@ -16,8 +16,8 @@ def _float_or_disabled(x: str) -> typing.Optional[float]:
         return None
     try:
         return float(x)
-    except ValueError:
-        raise argparse.ArgumentTypeError("invalid float value: {}".format(x))
+    except ValueError as ex:
+        raise argparse.ArgumentTypeError("invalid float value: {}".format(x)) from ex
 
 
 def parse_args() -> typing.Tuple[argparse.Namespace, LAParams]:

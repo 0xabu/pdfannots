@@ -14,7 +14,6 @@ class Printer(abc.ABC):
         """
         Perform initialisation and capture any relevant output options from the args object.
         """
-        pass
 
     def begin(self) -> str:
         """Called once prior to print_file call. Returns initial output."""
@@ -32,7 +31,6 @@ class Printer(abc.ABC):
         Pretty-print the extracted annotations, yielding output (incrementally) as strings.
         Called multiple times, once per file.
         """
-        pass
 
     def end(self) -> str:
         """Called once after the final print_file call. Returns any final additional output."""

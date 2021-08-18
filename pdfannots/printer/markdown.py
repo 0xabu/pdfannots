@@ -41,31 +41,33 @@ class MarkdownPrinter(Printer):
         filename: str,
         document: Document
     ) -> typing.Iterator[str]:
-        iter = self.emit_body(document)
+        body_iter = self.emit_body(document)
 
         if self.printfilename:
             # Print the file name, only if there is some output.
             try:
-                first = next(iter)
+                first = next(body_iter)
             except StopIteration:
                 pass
             else:
                 yield "# File: '%s'\n\n" % filename
                 yield first
 
-        yield from iter
+        yield from body_iter
 
+    @staticmethod
     def format_pos(
-        self,
         pos: Pos,
         document: Document
     ) -> str:
 
+        result = "Page %d" % (pos.page.pageno + 1)
+
         o = document.nearest_outline(pos)
         if o:
-            return "Page %d (%s)" % (pos.page.pageno + 1, o.title)
-        else:
-            return "Page %d" % (pos.page.pageno + 1)
+            result += " (%s)" % o.title
+
+        return result
 
     def format_bullet(
         self,
@@ -174,6 +176,7 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
     def __init__(self, args: argparse.Namespace):
         super().__init__(args)
         self.sections = args.sections  # controls the order of sections output
+        self._fmt_header_called: bool
 
     def emit_body(
         self,
