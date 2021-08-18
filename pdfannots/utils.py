@@ -19,13 +19,14 @@ def cleanup_text(text: str) -> str:
     """
     Normalise line endings and replace common special characters with plain ASCII equivalents.
     """
-    text = text.replace('\r\n', '\n').replace('\r', '\n')
+    if '\r' in text:
+        text = text.replace('\r\n', '\n').replace('\r', '\n')
     return ''.join([CHARACTER_SUBSTITUTIONS.get(c, c) for c in text])
 
 
-def merge_lines(captured_text: str, remove_hyphens: bool = False) -> str:
+def merge_lines(captured_text: str, remove_hyphens: bool = False, strip_space: bool = True) -> str:
     """
-    Merge lines in captured text, optionally removing hyphens.
+    Merge and cleanup lines in captured text, optionally removing hyphens.
 
     Any number of consecutive newlines is replaced by a single space, unless the
     prior line ends in a hyphen, in which case they are just removed entirely.
@@ -35,22 +36,27 @@ def merge_lines(captured_text: str, remove_hyphens: bool = False) -> str:
     """
     results = []
 
-    for line in captured_text.splitlines():
-        if line == '':
+    lines = captured_text.splitlines()
+    for i in range(len(lines)):
+        thisline = lines[i]
+        if thisline == '':
             continue
 
-        if (len(line) >= 2
-                and line[-1] == '-'       # Line ends in an apparent hyphen
-                and line[-2].islower()):  # Prior character was a lowercase letter
+        nextline = lines[i + 1] if i + 1 < len(lines) else None
+
+        if (len(thisline) >= 2
+                and thisline[-1] == '-'       # Line ends in an apparent hyphen
+                and thisline[-2].islower()):  # Prior character was a lowercase letter
             # We have a likely hyphen. Remove it if desired.
             if remove_hyphens:
-                line = line[:-1]
-        elif not line[-1].isspace():
-            line += ' '
+                thisline = thisline[:-1]
+        elif not thisline[-1].isspace() and nextline and not nextline[0].isspace():
+            # Insert space to replace the line break
+            thisline += ' '
 
-        results.append(line)
+        results.append(cleanup_text(thisline))
 
-    if results:
+    if results and strip_space:
         results[0] = results[0].lstrip()
         results[-1] = results[-1].rstrip()
 

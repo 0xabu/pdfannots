@@ -4,6 +4,7 @@ Tool to extract and pretty-print PDF annotations for reviewing.
 
 __version__ = '0.1'
 
+import bisect
 import collections
 import itertools
 import logging
@@ -28,7 +29,7 @@ pdfminer.settings.STRICT = False
 
 logger = logging.getLogger(__name__)
 
-ANNOT_SUBTYPES = {e.name: e for e in AnnotationType}
+ANNOT_SUBTYPES: typing.Final = {e.name: e for e in AnnotationType}
 
 
 def _mkannotation(
@@ -119,45 +120,124 @@ class _PDFProcessor(PDFLayoutAnalyzer):  # type:ignore
     and to capture the text that annotations may refer to.
     """
 
-    page: typing.Optional[Page]  # Page currently being processed.
-    pageseq: int                 # Current reading-order sequence number within the page.
-    _lasthit: typing.FrozenSet[Annotation]
-    _curline: typing.Set[Annotation]
+    CONTEXT_CHARS: typing.Final = 256
+    """Maximum number of recent characters to keep as context."""
+
+    page: typing.Optional[Page]     # Page being processed.
+    charseq: int                    # Character sequence number within the page.
+    lineseq: int                    # Line sequence number within the page.
+    recent_text: typing.Deque[str]  # Rotating buffer of recent text, for context.
+    _lasthit: typing.FrozenSet[Annotation]  # Annotations hit by the most recent character.
+    _curline: typing.Set[Annotation]        # Annotations hit somewhere on the current line.
+
+    # Stores annotations that are subscribed to receive their post-annotation
+    # context. The first element of each tuple, on which the list is sorted, is
+    # the sequence number of the last character to hit the annotation.
+    context_subscribers: typing.List[typing.Tuple[int, Annotation]]
 
     def __init__(self, rsrcmgr: PDFResourceManager, laparams: LAParams):
         super().__init__(rsrcmgr, laparams=laparams)
         self.page = None
-        self.pageseq = 0
+        self.recent_text = collections.deque(maxlen=self.CONTEXT_CHARS)
+        self.context_subscribers = []
+        self.clear()
 
-    def start_page(self, page: Page) -> None:
+    def clear(self) -> None:
+        """Reset our internal per-page state."""
+        self.charseq = 0
+        self.lineseq = 0
+        self.recent_text.clear()
+        self.context_subscribers.clear()
+        self._lasthit = frozenset()
+        self._curline = set()
+
+    def set_page(self, page: Page) -> None:
         """Prepare to process a new page. Must be called prior to processing."""
+        assert self.page is None
         self.page = page
-        self.pageseq = 0
 
     def receive_layout(self, ltpage: LTPage) -> None:
         """Callback from PDFLayoutAnalyzer superclass. Called once with each laid-out page."""
         assert self.page is not None
-        self._lasthit = frozenset()
-        self._curline = set()
+
+        # Re-initialise our per-page state
+        self.clear()
+
+        # Render all the items on the page
         self.render(ltpage)
 
-    def update_pageseq(self, line: LTTextLine) -> None:
+        # If we still have annotations needing context, give them whatever we have
+        for (charseq, annot) in self.context_subscribers:
+            available = self.charseq - charseq
+            annot.post_context = ''.join(self.recent_text[n] for n in range(-available, 0))
+
+        self.page = None
+
+    def update_lineseq(self, line: LTTextLine) -> None:
         """Assign sequence numbers for objects on the page based on the nearest line of text."""
         assert self.page is not None
-        self.pageseq += 1
+        self.lineseq += 1
 
         for x in itertools.chain(self.page.annots, self.page.outlines):
-            x.update_pageseq(line, self.pageseq)
+            x.update_pageseq(line, self.lineseq)
 
-    def testboxes(self, item: LTComponent) -> typing.AbstractSet[Annotation]:
-        """Return the set of annotations whose boxes intersect with the area of the given item."""
+    def test_boxes(self, item: LTComponent) -> None:
+        """Update the set of annotations whose boxes intersect with the area of the given item."""
         assert self.page is not None
-        hits = frozenset(
-            {a for a in self.page.annots if a.boxes and any(
-                {b.hit_item(item) for b in a.boxes})})
+        hits = frozenset(a for a in self.page.annots if a.boxes
+                         and any(b.hit_item(item) for b in a.boxes))
         self._lasthit = hits
         self._curline.update(hits)
-        return hits
+
+    def capture_context(self, text: str) -> None:
+        """Store the character for use as context, and update subscribers if required."""
+        assert len(text) == 1  # May be newline
+        self.recent_text.append(text)
+        self.charseq += 1
+
+        # Notify subscribers for whom this character provides the full post-context.
+        while self.context_subscribers:
+            (charseq, annot) = self.context_subscribers[0]
+            assert charseq < self.charseq
+            if charseq == self.charseq - self.CONTEXT_CHARS:
+                annot.set_post_context(''.join(self.recent_text))
+                self.context_subscribers.pop(0)
+            else:
+                assert charseq > self.charseq - self.CONTEXT_CHARS
+                break
+
+    def capture_char(self, text: str) -> None:
+        """Capture a non-newline character."""
+        assert len(text) == 1
+        assert text != '\n'
+        self.capture_context(text)
+
+        # Broadcast the character to annotations that include it.
+        for a in self._lasthit:
+            last_charseq = a.last_charseq
+            a.capture(text, self.charseq)
+
+            if a.wants_context():
+                if a.has_context():
+                    # We already gave the annotation the pre-context, so it is subscribed.
+                    # Locate and remove the annotation's existing context subscription.
+                    assert last_charseq != 0
+                    i = bisect.bisect_left(self.context_subscribers, (last_charseq,))
+                    assert 0 <= i < len(self.context_subscribers)
+                    (found_charseq, found_annot) = self.context_subscribers.pop(i)
+                    assert found_charseq == last_charseq
+                    assert found_annot is a
+
+                else:
+                    # This is the first hit for the annotation, so set the pre-context.
+                    assert last_charseq == 0
+                    assert len(a.text) == 1
+                    pre_context = ''.join(
+                        self.recent_text[n] for n in range(len(self.recent_text) - 1))
+                    a.set_pre_context(pre_context)
+
+                # Subscribe this annotation for post-context.
+                self.context_subscribers.append((self.charseq, a))
 
     def capture_newline(self) -> None:
         """
@@ -167,6 +247,7 @@ class _PDFProcessor(PDFLayoutAnalyzer):  # type:ignore
         current line, in case they see more text on the next line, even if the
         most recent character on the line was not covered by their boxes.
         """
+        self.capture_context('\n')
         for a in self._curline:
             a.capture('\n')
         self._curline = set()
@@ -179,7 +260,7 @@ class _PDFProcessor(PDFLayoutAnalyzer):  # type:ignore
         """
         # Assign sequence numbers to items on the page based on their proximity to lines of text.
         if isinstance(item, LTTextLine):
-            self.update_pageseq(item)
+            self.update_lineseq(item)
 
         # If it's a container, recurse on nested items.
         if isinstance(item, LTContainer):
@@ -195,19 +276,18 @@ class _PDFProcessor(PDFLayoutAnalyzer):  # type:ignore
         # individual characters (not higher-level objects like LTTextLine)
         # so that we can capture only those covered by the annotation boxes.
         elif isinstance(item, LTChar):
-            for a in self.testboxes(item):
-                a.capture(item.get_text())
+            self.test_boxes(item)
+            self.capture_char(item.get_text())
 
         # LTAnno objects capture whitespace not explicitly encoded in
-        # the text. They don't have an (X,Y) position, so we need some
-        # heuristics to match them to the nearby annotations.
+        # the text. They don't have an (X,Y) position -- we treat them
+        # the same as the most recent character.
         elif isinstance(item, LTAnno):
             text = item.get_text()
             if text == '\n':
                 self.capture_newline()
             else:
-                for a in self._lasthit:
-                    a.capture(text)
+                self.capture_char(text)
 
 
 def process_file(
@@ -290,7 +370,7 @@ def process_file(
         # Render the page. This captures the selected text for any annotations
         # on the page, and updates annotations and outlines with a logical
         # sequence number based on the order of text lines on the page.
-        device.start_page(page)
+        device.set_page(page)
         interpreter.process_page(pdfpage)
 
         # Now we have their logical order, sort the annotations and outlines.

@@ -5,6 +5,74 @@ import typing
 from . import Printer
 from ..types import AnnotationType, Pos, Annotation, Document
 
+MAX_CONTEXT_WORDS = 10
+"""Maximum number of words returned by trim_context."""
+
+FALLBACK_CONTEXT_WORDS = 4
+"""Number of words returned by trim_context in fallback mode."""
+
+CONTEXT_BOUNDARIES = [
+    # (separator, keep_on_left, keep_on_right)
+    ('. ', False, True),  # sentence boundary
+    ('! ', False, True),
+    ('? ', False, True),
+    (': ', False, False),
+    ('; ', False, False),
+    ('" ', False, True),   # end of quote
+    (' "', True, False),   # start of quote
+    (') ', False, True),   # end of parenthesis
+    (' (', True, False),   # start of parenthesis
+    ('—', False, False),   # em dash
+]
+"""Rough approximation of natural boundaries in writing, used when searching for context."""
+
+
+def trim_context(context: str, keep_right: bool) -> str:
+    """
+    Trim context for presentation.
+
+    Given a potentially-long string of context preceding or following an annotation, identify
+    a natural boundary at which to trim it, and return the trimmed string.
+
+    Arguments:
+        context     String of captured context
+        keep_right  Whether to retain text on the right (True) or left (False) end of the string
+    """
+    best = None
+
+    for (sep, keep_sep_left, keep_sep_right) in CONTEXT_BOUNDARIES:
+        # search for the separator
+        i = context.rfind(sep) if keep_right else context.find(sep)
+        if i < 0:
+            continue
+
+        # include the separator if desired
+        if (keep_right and not keep_sep_left) or (not keep_right and keep_sep_right):
+            i += len(sep)
+
+        # extract the candidate string
+        candidate = context[i:] if keep_right else context[:i]
+
+        if best is None or len(candidate) < len(best):
+            best = candidate
+            if len(candidate.split()) <= 1:
+                break
+
+    if best is not None and len(best.split()) <= MAX_CONTEXT_WORDS:
+        return best
+
+    # Give up and take a few words, whatever they are.
+    if keep_right:
+        fallback = '...' + ' '.join(context.split()[-FALLBACK_CONTEXT_WORDS:])
+        if context[-1].isspace():
+            fallback += context[-1]
+    else:
+        fallback = ' '.join(context.split()[:FALLBACK_CONTEXT_WORDS]) + '...'
+        if context[0].isspace():
+            fallback = context[0] + fallback
+
+    return fallback
+
 
 class MarkdownPrinter(Printer):
     BULLET_INDENT1 = " * "
@@ -112,6 +180,18 @@ class MarkdownPrinter(Printer):
 
         return ret
 
+    def merge_strikeout_context(self, annot: Annotation, text: str) -> str:
+        """Merge the context for a strikeout annotation into the text."""
+        (pre, post) = annot.get_context(self.remove_hyphens)
+
+        if pre:
+            pre = trim_context(pre, keep_right=True)
+
+        if post:
+            post = trim_context(post, keep_right=False)
+
+        return pre + '<del>' + text + '</del>' + post
+
     def format_annot(
         self,
         annot: Annotation,
@@ -123,6 +203,10 @@ class MarkdownPrinter(Printer):
         text = annot.gettext(self.remove_hyphens) or ''
         comment = ([l for l in annot.contents.splitlines() if l]
                    if annot.contents else [])
+
+        if annot.has_context():
+            assert annot.subtype == AnnotationType.StrikeOut
+            text = self.merge_strikeout_context(annot, text)
 
         # we are either printing: item text and item contents, or one of the two
         # if we see an annotation with neither, something has gone wrong
@@ -138,6 +222,7 @@ class MarkdownPrinter(Printer):
         # quotation marks around the text and merge the two into a single paragraph.
         if (self.condense
             and text
+            and not annot.has_context()
             and len(text.split()) <= 10  # words
             and all([x not in text for x in ['"', '. ']])
                 and (not comment or len(comment) == 1)):
@@ -216,5 +301,5 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
             if nits and secname == 'nits':
                 yield fmt_header("Nits")
                 for a in nits:
-                    extra = "delete" if a.subtype == AnnotationType.StrikeOut else None
+                    extra = "suggested deletion" if a.subtype == AnnotationType.StrikeOut else None
                     yield self.format_annot(a, document, extra)

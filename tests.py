@@ -48,6 +48,12 @@ class ExtractionTestBase(unittest.TestCase):
             self.annots = [a for p in self.doc.pages for a in p.annots]
             self.outlines = [o for p in self.doc.pages for o in p.outlines]
 
+    def assertEndsWith(self, bigstr: str, suffix: str) -> None:
+        self.assertEqual(bigstr[-len(suffix):], suffix)
+
+    def assertStartsWith(self, bigstr: str, prefix: str) -> None:
+        self.assertEqual(bigstr[:len(prefix)], prefix)
+
 
 class ExtractionTests(ExtractionTestBase):
     filename = 'hotos17.pdf'
@@ -146,6 +152,81 @@ class Pr24(ExtractionTestBase):
         self.assertEqual(len(self.annots), len(EXPECTED))
         for a, expected in zip(self.annots, EXPECTED):
             self.assertEqual((a.subtype, a.contents, a.gettext()), expected)
+
+
+class Landscape2Column(ExtractionTestBase):
+    filename = 'word2column.pdf'
+
+    def test(self) -> None:
+        self.assertEqual(len(self.annots), 9)
+
+        a = self.annots[0]
+        self.assertEqual(a.subtype, AnnotationType.StrikeOut)
+        self.assertEqual(a.gettext(), 'nostrud exercitation')
+        self.assertTrue(a.has_context())
+        (pre, post) = a.get_context()
+        self.assertEndsWith(
+            pre, 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor '
+            'incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis ')
+        self.assertStartsWith(
+            post, ' ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor')
+
+        a = self.annots[1]
+        self.assertEqual(a.subtype, AnnotationType.StrikeOut)
+        self.assertEqual(a.gettext(), 'Duis')
+        self.assertTrue(a.has_context())
+        (pre, post) = a.get_context()
+        self.assertEndsWith(pre, 'ullamco laboris nisi ut aliquip ex ea commodo consequat. ')
+        self.assertStartsWith(
+            post, ' aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu '
+            'fugiat nulla pariatur.')
+
+        a = self.annots[2]
+        self.assertEqual(a.subtype, AnnotationType.StrikeOut)
+        self.assertEqual(a.gettext(), 'laborum')
+        self.assertTrue(a.has_context())
+        (pre, post) = a.get_context()
+        self.assertEndsWith(pre, ', sunt in culpa qui officia deserunt mollit anim id est ')
+        self.assertStartsWith(post, '. Heading 2 Sed ut perspiciatis,')
+
+        a = self.annots[3]
+        self.assertEqual(a.subtype, AnnotationType.Highlight)
+        self.assertEqual(
+            a.gettext(), 'At vero eos et accusamus et iusto odio dignissimos ducimus, qui '
+            'blanditiis praesentium voluptatum deleniti atque corrupti,')
+        self.assertFalse(a.has_context())
+
+        a = self.annots[4]
+        self.assertEqual(a.subtype, AnnotationType.Squiggly)
+        self.assertEqual(
+            a.gettext(), 'Itaque earum rerum hic tenetur a sapiente delectus, ut aut reiciendis '
+            'voluptatibus maiores alias consequatur aut perferendis doloribus asperiores repellat.')
+        self.assertEqual(a.contents, 'Nonsense!')
+        self.assertFalse(a.has_context())
+
+        a = self.annots[5]
+        self.assertEqual(a.subtype, AnnotationType.StrikeOut)
+        self.assertEqual(a.gettext(), 'equal')
+        self.assertTrue(a.has_context())
+        (pre, post) = a.get_context()
+        self.assertEndsWith(pre, 'the pain and trouble that are bound to ensue; and ')
+        self.assertStartsWith(post, ' blame belongs to those who fail in their')  # end of page
+
+        a = self.annots[6]
+        self.assertEqual(a.subtype, AnnotationType.StrikeOut)
+        self.assertEqual(a.gettext(), 'duty')
+        self.assertTrue(a.has_context())
+        (pre, post) = a.get_context()
+        self.assertEqual(pre, '')  # start of page
+        self.assertStartsWith(post, ' through weakness of will, which')
+
+        a = self.annots[7]
+        self.assertEqual(a.subtype, AnnotationType.StrikeOut)
+        self.assertEqual(a.gettext(), 'In a free hour,')
+        self.assertTrue(a.has_context())
+        (pre, post) = a.get_context()
+        self.assertEndsWith(pre, 'These cases are perfectly simple and easy to distinguish. ')
+        self.assertStartsWith(post, ' when our power of choice is untrammeled and when nothing')
 
 
 class PrinterTestBase(unittest.TestCase):

@@ -7,7 +7,7 @@ import typing
 from pdfminer.layout import LTComponent, LTTextLine
 from pdfminer.pdftypes import PDFObjRef
 
-from .utils import cleanup_text, merge_lines
+from .utils import merge_lines
 
 logger = logging.getLogger('pdfannots')
 
@@ -239,16 +239,23 @@ class Annotation(ObjectWithPos):
     A PDF annotation, and its extracted text.
 
     Attributes:
-        subtype     PDF annotation type
-        contents    Contents of the annotation in the PDF (e.g. comment/description)
-        text        Captured text (but see gettext() for a cleaner form)
-        author      Author of the annotation
-        created     Timestamp the annotation was created
+        subtype      PDF annotation type
+        contents     Contents of the annotation in the PDF (e.g. comment/description)
+        text         Text in the order captured (use gettext() for a cleaner form)
+        author       Author of the annotation
+        created      Timestamp the annotation was created
+        last_charseq Sequence number of the most recent character in text
+
+    Attributes updated only for StrikeOut annotations:
+        pre_context  Text captured just prior to the beginning of 'text'
+        post_context Text captured just after the end of 'text'
     """
 
     contents: typing.Optional[str]
     boxes: typing.List[Box]
     text: typing.List[str]
+    pre_context: typing.Optional[str]
+    post_context: typing.Optional[str]
 
     def __init__(
             self,
@@ -285,7 +292,10 @@ class Annotation(ObjectWithPos):
         self.author = author
         self.created = created
         self.text = []
+        self.pre_context = None
+        self.post_context = None
         self.boxes = boxes
+        self.last_charseq = 0
 
     def __repr__(self) -> str:
         return ('<Annotation %s %r%s%s>' %
@@ -293,22 +303,55 @@ class Annotation(ObjectWithPos):
                  " '%s'" % self.contents[:10] if self.contents else '',
                  " '%s'" % ''.join(self.text[:10]) if self.text else ''))
 
-    def capture(self, text: str) -> None:
+    def capture(self, text: str, charseq: int = 0) -> None:
         """Capture text (while rendering the PDF page)."""
         self.text.append(text)
+        if charseq:
+            assert charseq > self.last_charseq
+            self.last_charseq = charseq
 
     def gettext(self, remove_hyphens: bool = False) -> typing.Optional[str]:
         """Retrieve cleaned-up text, after rendering."""
         if self.boxes:
             if self.text:
                 captured = ''.join(self.text)
-                return cleanup_text(merge_lines(captured, remove_hyphens))
+                return merge_lines(captured, remove_hyphens, strip_space=(not self.has_context()))
             else:
                 # something's strange -- we have boxes but no text for them
                 logger.warning('Missing text for %s annotation at %s', self.subtype.name, self.pos)
                 return ""
         else:
             return None
+
+    def wants_context(self) -> bool:
+        """Returns true if this annotation type should include context."""
+        return self.subtype == AnnotationType.StrikeOut
+
+    def set_pre_context(self, pre_context: str) -> None:
+        assert self.pre_context is None
+        self.pre_context = pre_context
+
+    def set_post_context(self, post_context: str) -> None:
+        assert self.post_context is None
+
+        # If the captured text ends in space, move it to the context.
+        if self.text:
+            whitespace = []
+            while self.text[-1].isspace():
+                whitespace.append(self.text.pop())
+            if whitespace:
+                post_context = ''.join(whitespace) + post_context
+
+        self.post_context = post_context
+
+    def has_context(self) -> bool:
+        """Returns true if this annotation captured context."""
+        return self.pre_context is not None or self.post_context is not None
+
+    def get_context(self, remove_hyphens: bool = False) -> typing.Tuple[str, str]:
+        """Returns context captured for this annotation, as a tuple (pre, post)."""
+        return (merge_lines(self.pre_context or '', remove_hyphens, strip_space=False),
+                merge_lines(self.post_context or '', remove_hyphens, strip_space=False))
 
 
 UnresolvedPage = typing.Union[int, PDFObjRef]
