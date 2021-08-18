@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# mypy: ignore-errors
 
 import argparse
 from datetime import datetime, timedelta, timezone
@@ -8,7 +7,10 @@ import json
 import unittest
 import operator
 import pathlib
+import typing
+
 import pdfminer.layout
+
 import pdfannots
 import pdfannots.utils
 from pdfannots.types import AnnotationType
@@ -17,7 +19,7 @@ from pdfannots.printer.json import JsonPrinter
 
 
 class UnitTests(unittest.TestCase):
-    def test_decode_datetime(self):
+    def test_decode_datetime(self) -> None:
         datas = [
             ("D:123456", None),  # defensive on bad datetimes
             ("D:20190119212926-08'00'",
@@ -32,11 +34,13 @@ class UnitTests(unittest.TestCase):
 
 
 class ExtractionTestBase(unittest.TestCase):
+    filename: str
+
     # Permit a test to customise the columns_per_page or LAParams
-    columns_per_page = None
+    columns_per_page: typing.Optional[int] = None
     laparams = pdfminer.layout.LAParams()
 
-    def setUp(self):
+    def setUp(self) -> None:
         path = pathlib.Path(__file__).parent / 'tests' / self.filename
         with path.open('rb') as f:
             self.doc = pdfannots.process_file(f, columns_per_page=self.columns_per_page,
@@ -49,7 +53,7 @@ class ExtractionTests(ExtractionTestBase):
     filename = 'hotos17.pdf'
     columns_per_page = 2  # for test_nearest_outline
 
-    def test_annots(self):
+    def test_annots(self) -> None:
         EXPECTED = [
             (0, AnnotationType.Squiggly, None, 'recent Intel CPUs have introduced'),
             (0, AnnotationType.Text, 'This is a note with no text attached.', None),
@@ -69,12 +73,13 @@ class ExtractionTests(ExtractionTestBase):
 
         self.assertEqual(len(self.annots), len(EXPECTED))
         for a, expected in zip(self.annots, EXPECTED):
+            assert a.pos is not None
             self.assertEqual(
                 (a.pos.page.pageno, a.subtype, a.contents, a.gettext()), expected)
         self.assertEqual(self.annots[0].created, datetime(
             2019, 1, 19, 21, 29, 42, tzinfo=timezone(-timedelta(hours=8))))
 
-    def test_outlines(self):
+    def test_outlines(self) -> None:
         EXPECTED = [
             'Introduction',
             'Background: x86 extensions',
@@ -87,23 +92,27 @@ class ExtractionTests(ExtractionTestBase):
         for o, expected in zip(self.outlines, EXPECTED):
             self.assertEqual(o.title, expected)
 
-    def test_nearest_outline(self):
+    def test_nearest_outline(self) -> None:
         # Page 1 (Introduction) Squiggly: "recent Intel CPUs have introduced"
-        o = self.doc.nearest_outline(self.doc.pages[0].annots[0].pos)
-        self.assertIsNotNone(o)
+        a = self.doc.pages[0].annots[0]
+        assert a.pos is not None
+        o = self.doc.nearest_outline(a.pos)
+        assert o is not None
         self.assertEqual(o.title, 'Introduction')
 
         # Page 4 (Case study: CET) Squiggly: "Control transfer in x86 is already very complex"
         # Note: pdfminer gets this wrong as of 20201018; we must set columns_per_page to fix it
-        o = self.doc.nearest_outline(self.doc.pages[3].annots[0].pos)
-        self.assertIsNotNone(o)
+        a = self.doc.pages[3].annots[0]
+        assert a.pos is not None
+        o = self.doc.nearest_outline(a.pos)
+        assert o is not None
         self.assertEqual(o.title, 'Case study: CET')
 
 
 class Issue9(ExtractionTestBase):
     filename = 'issue9.pdf'
 
-    def test(self):
+    def test(self) -> None:
         self.assertEqual(len(self.annots), 1)
         a = self.annots[0]
         self.assertEqual(a.gettext(), 'World')
@@ -112,7 +121,7 @@ class Issue9(ExtractionTestBase):
 class Issue13(ExtractionTestBase):
     filename = 'issue13.pdf'
 
-    def test(self):
+    def test(self) -> None:
         self.assertEqual(len(self.annots), 1)
         a = self.annots[0]
         self.assertEqual(a.gettext(), 'This is a sample statement.')
@@ -124,7 +133,7 @@ class Pr24(ExtractionTestBase):
     # Workaround for https://github.com/pdfminer/pdfminer.six/issues/658
     laparams = pdfminer.layout.LAParams(boxes_flow=None)
 
-    def test(self):
+    def test(self) -> None:
         EXPECTED = [
             (AnnotationType.Highlight, 'long highlight',
              'Heading Link to heading that is working with vim-pandoc. Link to heading that'),
@@ -141,7 +150,7 @@ class Pr24(ExtractionTestBase):
 class PrinterTestBase(unittest.TestCase):
     filename = 'hotos17.pdf'
 
-    def setUp(self):
+    def setUp(self) -> None:
         path = pathlib.Path(__file__).parent / 'tests' / self.filename
         with path.open('rb') as f:
             self.doc = pdfannots.process_file(f)
@@ -150,7 +159,7 @@ class PrinterTestBase(unittest.TestCase):
 class MarkdownPrinterTest(PrinterTestBase):
     # There's not a whole lot of value in testing the precise output format,
     # but let's make sure we produce a non-trivial result and don't crash.
-    def test_flat(self):
+    def test_flat(self) -> None:
         args = argparse.Namespace()
         args.printfilename = True
         args.wrap = None
@@ -167,7 +176,7 @@ class MarkdownPrinterTest(PrinterTestBase):
         self.assertGreater(linecount, 5)
         self.assertGreater(charcount, 500)
 
-    def test_grouped(self):
+    def test_grouped(self) -> None:
         args = argparse.Namespace()
         args.printfilename = False
         args.wrap = 80
@@ -187,7 +196,7 @@ class MarkdownPrinterTest(PrinterTestBase):
 
 
 class JsonPrinterTest(PrinterTestBase):
-    def test_flat(self):
+    def test_flat(self) -> None:
         args = argparse.Namespace()
         args.printfilename = False
         p = JsonPrinter(args)
@@ -200,7 +209,7 @@ class JsonPrinterTest(PrinterTestBase):
         self.assertTrue(isinstance(j, list))
         self.assertEqual(len(j), 8)
 
-    def test_files(self):
+    def test_files(self) -> None:
         args = argparse.Namespace()
         args.printfilename = True
         p = JsonPrinter(args)
