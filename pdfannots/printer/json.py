@@ -11,7 +11,7 @@ def annot_to_dict(doc: Document, annot: Annotation) -> typing.Dict[str, typing.A
     assert annot.pos
 
     result = {
-        "type": annot.tagname,
+        "type": annot.subtype.name,
         "page": annot.pos.page.pageno + 1,
         "start_xy": (annot.pos.x, annot.pos.y),
     }

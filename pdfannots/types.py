@@ -1,5 +1,6 @@
 import bisect
 import datetime
+import enum
 import logging
 import typing
 
@@ -224,12 +225,21 @@ class ObjectWithPos:
             self.pos.update_pageseq(line, pageseq)
 
 
+class AnnotationType(enum.Enum):
+    """A supported PDF annotation type. Enumerant names match the Subtype names of the PDF spec."""
+    Text = enum.auto()
+    Highlight = enum.auto()
+    Squiggly = enum.auto()
+    StrikeOut = enum.auto()
+    Underline = enum.auto()
+
+
 class Annotation(ObjectWithPos):
     """
     A PDF annotation, and its extracted text.
 
     Attributes:
-        tagname     PDF annotation type
+        subtype     PDF annotation type
         contents    Contents of the annotation in the PDF (e.g. comment/description)
         text        Captured text (but see gettext() for a cleaner form)
         author      Author of the annotation
@@ -243,7 +253,7 @@ class Annotation(ObjectWithPos):
     def __init__(
             self,
             page: Page,
-            tagname: str,
+            subtype: AnnotationType,
             coords: typing.Optional[typing.Sequence[float]] = None,
             rect: typing.Optional[BoxCoords] = None,
             contents: typing.Optional[str] = None,
@@ -270,7 +280,7 @@ class Annotation(ObjectWithPos):
         super().__init__(pos)
 
         # Initialise the attributes
-        self.tagname = tagname
+        self.subtype = subtype
         self.contents = contents if contents else None
         self.author = author
         self.created = created
@@ -279,7 +289,7 @@ class Annotation(ObjectWithPos):
 
     def __repr__(self) -> str:
         return ('<Annotation %s %r%s%s>' %
-                (self.tagname, self.pos,
+                (self.subtype.name, self.pos,
                  " '%s'" % self.contents[:10] if self.contents else '',
                  " '%s'" % self.text[:10] if self.text else ''))
 
@@ -312,7 +322,7 @@ class Annotation(ObjectWithPos):
                 return cleanup_text(self.text.strip())
             else:
                 # something's strange -- we have boxes but no text for them
-                logger.warning('Missing text for %s annotation at %s', self.tagname, self.pos)
+                logger.warning('Missing text for %s annotation at %s', self.subtype.name, self.pos)
                 return ""
         else:
             return None

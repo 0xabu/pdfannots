@@ -3,7 +3,7 @@ import textwrap
 import typing
 
 from . import Printer
-from ..types import Pos, Annotation, Document
+from ..types import AnnotationType, Pos, Annotation, Document
 
 
 class MarkdownPrinter(Printer):
@@ -166,11 +166,12 @@ class MarkdownPrinter(Printer):
         document: Document
     ) -> typing.Iterator[str]:
         for a in document.iter_annots():
-            yield self.format_annot(a, document, a.tagname)
+            yield self.format_annot(a, document, a.subtype.name)
 
 
 class GroupedMarkdownPrinter(MarkdownPrinter):
-    ANNOT_NITS = frozenset({'Squiggly', 'StrikeOut', 'Underline'})
+    ANNOT_NITS = frozenset({
+        AnnotationType.Squiggly, AnnotationType.StrikeOut, AnnotationType.Underline})
     ALL_SECTIONS = ["highlights", "comments", "nits"]
 
     def __init__(self, args: argparse.Namespace):
@@ -196,11 +197,11 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
         comments = []
         highlights = []
         for a in document.iter_annots():
-            if a.tagname in self.ANNOT_NITS:
+            if a.subtype in self.ANNOT_NITS:
                 nits.append(a)
             elif a.contents:
                 comments.append(a)
-            elif a.tagname == 'Highlight':
+            elif a.subtype == AnnotationType.Highlight:
                 highlights.append(a)
 
         for secname in self.sections:
@@ -217,5 +218,5 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
             if nits and secname == 'nits':
                 yield fmt_header("Nits")
                 for a in nits:
-                    extra = "delete" if a.tagname == 'StrikeOut' else None
+                    extra = "delete" if a.subtype == AnnotationType.StrikeOut else None
                     yield self.format_annot(a, document, extra)

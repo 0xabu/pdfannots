@@ -11,6 +11,7 @@ import pathlib
 import pdfminer.layout
 import pdfannots
 import pdfannots.utils
+from pdfannots.types import AnnotationType
 from pdfannots.printer.markdown import MarkdownPrinter, GroupedMarkdownPrinter
 from pdfannots.printer.json import JsonPrinter
 
@@ -50,25 +51,26 @@ class ExtractionTests(ExtractionTestBase):
 
     def test_annots(self):
         EXPECTED = [
-            (0, 'Squiggly', None, 'recent Intel CPUs have introduced'),
-            (0, 'Text', 'This is a note with no text attached.', None),
-            (1, 'Highlight', None,
+            (0, AnnotationType.Squiggly, None, 'recent Intel CPUs have introduced'),
+            (0, AnnotationType.Text, 'This is a note with no text attached.', None),
+            (1, AnnotationType.Highlight, None,
              'TSX launched with "Haswell" in 2013 but was later disabled due to a bug. '
              '"Broadwell" CPUs with the bug fix shipped in late 2014.'),
-            (1, 'Highlight', 'This is lower in column 1',
+            (1, AnnotationType.Highlight, 'This is lower in column 1',
              'user-mode access to FS/GS registers, and TLB tags for non-VM address spaces'),
-            (1, 'Highlight', 'This is at the top of column two',
+            (1, AnnotationType.Highlight, 'This is at the top of column two',
              'The jump is due to extensions introduced with the "Skylake" microarchitecture'),
-            (3, 'Squiggly', 'This is a nit.',
+            (3, AnnotationType.Squiggly, 'This is a nit.',
              'Control transfer in x86 is already very complex'),
-            (3, 'Underline', 'This is a different nit',
+            (3, AnnotationType.Underline, 'This is a different nit',
              'Besides modifying semantics of all indirect control transfers'),
-            (3, 'StrikeOut', None, 'While we may disagree with some of the design choices,')]
+            (3, AnnotationType.StrikeOut, None,
+             'While we may disagree with some of the design choices,')]
 
         self.assertEqual(len(self.annots), len(EXPECTED))
         for a, expected in zip(self.annots, EXPECTED):
             self.assertEqual(
-                (a.pos.page.pageno, a.tagname, a.contents, a.gettext()), expected)
+                (a.pos.page.pageno, a.subtype, a.contents, a.gettext()), expected)
         self.assertEqual(self.annots[0].created, datetime(
             2019, 1, 19, 21, 29, 42, tzinfo=timezone(-timedelta(hours=8))))
 
@@ -124,16 +126,16 @@ class Pr24(ExtractionTestBase):
 
     def test(self):
         EXPECTED = [
-            ('Highlight', 'long highlight',
+            (AnnotationType.Highlight, 'long highlight',
              'Heading Link to heading that is working with vim-pandoc. Link to heading that'),
-            ('Highlight', 'short highlight', 'not working'),
-            ('Text', None, None),
-            ('Highlight', None, 'Some more text'),
-            ('Text', 's', None),
-            ('Text', 'dual\n\npara note', None)]
+            (AnnotationType.Highlight, 'short highlight', 'not working'),
+            (AnnotationType.Text, None, None),
+            (AnnotationType.Highlight, None, 'Some more text'),
+            (AnnotationType.Text, 's', None),
+            (AnnotationType.Text, 'dual\n\npara note', None)]
         self.assertEqual(len(self.annots), len(EXPECTED))
         for a, expected in zip(self.annots, EXPECTED):
-            self.assertEqual((a.tagname, a.contents, a.gettext()), expected)
+            self.assertEqual((a.subtype, a.contents, a.gettext()), expected)
 
 
 class PrinterTestBase(unittest.TestCase):

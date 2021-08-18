@@ -21,15 +21,14 @@ from pdfminer import pdftypes
 import pdfminer.settings
 import pdfminer.utils
 
-from .types import Page, Outline, Annotation, Document
+from .types import Page, Outline, AnnotationType, Annotation, Document
 from .utils import cleanup_text, decode_datetime
 
 pdfminer.settings.STRICT = False
 
 logger = logging.getLogger(__name__)
 
-ANNOT_SUBTYPES = frozenset(
-    {'Text', 'Highlight', 'Squiggly', 'StrikeOut', 'Underline'})
+ANNOT_SUBTYPES = {e.name: e for e in AnnotationType}
 
 
 def _mkannotation(
@@ -44,7 +43,10 @@ def _mkannotation(
     """
 
     subtype = pa.get('Subtype')
-    if subtype is None or subtype.name not in ANNOT_SUBTYPES:
+    try:
+        # subtype may be None, or its name may be unsupported
+        annot_type = ANNOT_SUBTYPES[subtype.name]
+    except (TypeError, KeyError):
         return None
 
     contents = pa.get('Contents')
@@ -70,7 +72,7 @@ def _mkannotation(
         createds = pdfminer.utils.decode_text(createds)
         created = decode_datetime(createds)
 
-    return Annotation(page, subtype.name, coords, rect,
+    return Annotation(page, annot_type, coords, rect,
                       contents, author=author, created=created)
 
 
