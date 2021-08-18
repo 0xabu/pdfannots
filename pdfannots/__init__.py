@@ -44,9 +44,9 @@ def _mkannotation(
 
     subtype = pa.get('Subtype')
     try:
-        # subtype may be None, or its name may be unsupported
         annot_type = ANNOT_SUBTYPES[subtype.name]
     except (TypeError, KeyError):
+        # subtype is missing (None), or is an unknown/unsupported type
         return None
 
     contents = pa.get('Contents')
@@ -190,7 +190,6 @@ class _PDFProcessor(PDFLayoutAnalyzer):  # type:ignore
             # After the children of a text box, capture the end of the final
             # line (logic derived from pdfminer.converter.TextConverter).
             if isinstance(item, LTTextBox):
-                self.testboxes(item)
                 self.capture_newline()
 
         # Each character is represented by one LTChar, and we must handle
