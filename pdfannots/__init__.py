@@ -29,7 +29,7 @@ pdfminer.settings.STRICT = False
 
 logger = logging.getLogger(__name__)
 
-ANNOT_SUBTYPES: typing.Final = {e.name: e for e in AnnotationType}
+ANNOT_SUBTYPES = {e.name: e for e in AnnotationType}
 
 
 def _mkannotation(
@@ -120,7 +120,7 @@ class _PDFProcessor(PDFLayoutAnalyzer):  # type:ignore
     and to capture the text that annotations may refer to.
     """
 
-    CONTEXT_CHARS: typing.Final = 256
+    CONTEXT_CHARS = 256
     """Maximum number of recent characters to keep as context."""
 
     page: typing.Optional[Page]     # Page being processed.
