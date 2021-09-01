@@ -13,7 +13,7 @@ class JsonPrinter(Printer):
 
         # We overload the printfilename option to decide whether to emit a structured
         # JSON file with one entry per file, or just a flat array of annotations.
-        self.printfilename = args.printfilename
+        self.printfilename = args.printfilename if len(args.input) < 2 else True
         self.seen_first = False
 
     def begin(self) -> str:
@@ -22,21 +22,10 @@ class JsonPrinter(Printer):
     def end(self) -> str:
         return '\n]\n' if self.printfilename else '\n'
 
-    def print_file(
-        self,
-        filename: str,
-        document: Document
-    ) -> typing.Iterator[str]:
-
+    def print_file(self, filename: str, document: Document) -> typing.Iterator[str]:
         # insert a , between successive files
         if self.seen_first:
-            if self.printfilename:
-                yield ',\n'
-            else:
-                # The flat array format is incompatible with multiple input files
-                # TODO: Ideally we'd catch this at invocation time
-                raise RuntimeError("When used with multiple input files, the "
-                                   "JSON formatter requires --print-filename")
+            yield ',\n'
         else:
             self.seen_first = True
 
