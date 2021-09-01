@@ -2,11 +2,11 @@ import argparse
 import json
 import typing
 
-from . import Printer
-from ..types import Annotation, Document
+from . import DictBasedPrinter
+from ..types import Document
 
 
-class JsonPrinter(Printer):
+class JsonPrinter(DictBasedPrinter):
     def __init__(self, args: argparse.Namespace):
         super().__init__(args)
         self.remove_hyphens = args.remove_hyphens  # Whether to remove hyphens across a line break
@@ -40,30 +40,3 @@ class JsonPrinter(Printer):
         yield from json.JSONEncoder(indent=2).iterencode(
             dictobj if self.printfilename else annot_dicts)
 
-    def annot_to_dict(self, doc: Document, annot: Annotation) -> typing.Dict[str, typing.Any]:
-        """Convert an annotation to a dictionary representation suitable for JSON encoding."""
-        assert annot.pos
-
-        result = {
-            "type": annot.subtype.name,
-            "page": annot.pos.page.pageno + 1,
-            "start_xy": (annot.pos.x, annot.pos.y),
-        }
-
-        outline = doc.nearest_outline(annot.pos)
-        if outline:
-            result["prior_outline"] = outline.title
-
-        if annot.text:
-            result['text'] = annot.gettext(self.remove_hyphens)
-
-        if annot.contents:
-            result['contents'] = annot.contents
-
-        if annot.author:
-            result['author'] = annot.author
-
-        if annot.created:
-            result['created'] = annot.created.strftime('%Y-%m-%dT%H:%M:%S')
-
-        return result
