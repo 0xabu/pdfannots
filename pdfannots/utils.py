@@ -50,7 +50,9 @@ def merge_lines(captured_text: str, remove_hyphens: bool = False, strip_space: b
             # We have a likely hyphen. Remove it if desired.
             if remove_hyphens:
                 thisline = thisline[:-1]
-        elif not thisline[-1].isspace() and nextline and not nextline[0].isspace():
+        elif (not thisline[-1].isspace()
+              and nextline is not None
+              and (nextline == '' or not nextline[0].isspace())):
             # Insert space to replace the line break
             thisline += ' '
 

@@ -4,6 +4,7 @@ import typing
 
 from . import Printer
 from ..types import AnnotationType, Pos, Annotation, Document
+from .. import logger
 
 MAX_CONTEXT_WORDS = 10
 """Maximum number of words returned by trim_context."""
@@ -210,7 +211,10 @@ class MarkdownPrinter(Printer):
 
         # we are either printing: item text and item contents, or one of the two
         # if we see an annotation with neither, something has gone wrong
-        assert text or comment
+        if not (text or comment):
+            logger.warning('%s annotation at %s has neither text nor a comment; skipped',
+                           annot.subtype.name, annot.pos)
+            return ''
 
         # compute the formatted position (and extra bit if needed) as a label
         assert annot.pos is not None

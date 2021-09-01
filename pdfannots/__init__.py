@@ -191,7 +191,6 @@ class _PDFProcessor(PDFLayoutAnalyzer):  # type:ignore
 
     def capture_context(self, text: str) -> None:
         """Store the character for use as context, and update subscribers if required."""
-        assert len(text) == 1  # May be newline
         self.recent_text.append(text)
         self.charseq += 1
 
@@ -208,7 +207,6 @@ class _PDFProcessor(PDFLayoutAnalyzer):  # type:ignore
 
     def capture_char(self, text: str) -> None:
         """Capture a non-newline character."""
-        assert len(text) == 1
         assert text != '\n'
         self.capture_context(text)
 
@@ -231,7 +229,7 @@ class _PDFProcessor(PDFLayoutAnalyzer):  # type:ignore
                 else:
                     # This is the first hit for the annotation, so set the pre-context.
                     assert last_charseq == 0
-                    assert len(a.text) == 1
+                    assert len(a.text) != 0
                     pre_context = ''.join(
                         self.recent_text[n] for n in range(len(self.recent_text) - 1))
                     a.set_pre_context(pre_context)
