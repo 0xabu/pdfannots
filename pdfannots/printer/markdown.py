@@ -131,7 +131,7 @@ class MarkdownPrinter(Printer):
         document: Document
     ) -> str:
 
-        result = "Page %d" % (pos.page.pageno + 1)
+        result = str(pos.page).title()
 
         o = document.nearest_outline(pos)
         if o:

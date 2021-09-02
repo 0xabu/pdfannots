@@ -116,13 +116,21 @@ class Page:
         assert fixed_columns is None or fixed_columns > 0
         self.pageno = pageno
         self.objid = objid
+        self.label: typing.Optional[str] = None
         self.annots = []
         self.outlines = []
         self.mediabox = Box.from_coords(mediabox)
         self.fixed_columns = fixed_columns
 
     def __repr__(self) -> str:
-        return '<Page %d>' % self.pageno
+        return '<Page #%d>' % self.pageno  # zero-based page index
+
+    def __str__(self) -> str:
+        if self.label:
+            return 'page %s' % self.label
+        else:
+            # + 1 for 1-based page numbers in normal program output (error messages, etc.)
+            return 'page #%d' % (self.pageno + 1)
 
     def __eq__(self, other: typing.Any) -> bool:
         if not isinstance(other, Page):
@@ -152,11 +160,10 @@ class Pos:
         self._pageseq_distance = 0.0
 
     def __str__(self) -> str:
-        # + 1 for 1-based page numbers in normal program output (error messages, etc.)
-        return 'page %d (%.3f,%.3f)' % (self.page.pageno + 1, self.x, self.y)
+        return '%s (%.3f,%.3f)' % (self.page, self.x, self.y)
 
     def __repr__(self) -> str:
-        return '<Pos pg%d (%.3f,%.3f) #%d>' % (self.page.pageno, self.x, self.y, self._pageseq)
+        return '<Pos pg#%d (%.3f,%.3f) #%d>' % (self.page.pageno, self.x, self.y, self._pageseq)
 
     def __lt__(self, other: typing.Any) -> bool:
         if isinstance(other, Pos):
