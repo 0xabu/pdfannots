@@ -4,7 +4,7 @@ import enum
 import logging
 import typing
 
-from pdfminer.layout import LTComponent, LTTextLine
+from pdfminer.layout import LTComponent, LTText, LTTextLine
 from pdfminer.pdftypes import PDFObjRef
 
 from .utils import merge_lines
@@ -67,7 +67,7 @@ class Box:
         if overlap_area != 0:
             logger.debug(
                 "Box hit: '%s' %f-%f,%f-%f in %f-%f,%f-%f %2.0f%%",
-                item.get_text(),
+                item.get_text() if isinstance(item, LTText) else '',
                 item.x0, item.x1, item.y0, item.y1,
                 self.x0, self.x1, self.y0, self.y1,
                 100 * overlap_area / item_area)
@@ -194,7 +194,7 @@ class Pos:
 
     def item_hit(self, item: LTComponent) -> bool:
         """Is this pos within the bounding box of the given PDF component?"""
-        return (self.x >= item.x0  # type:ignore
+        return (self.x >= item.x0  # type: ignore [no-any-return]
                 and self.x <= item.x1
                 and self.y >= item.y0
                 and self.y <= item.y1)
