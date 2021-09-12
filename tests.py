@@ -1,21 +1,26 @@
 #!/usr/bin/env python3
 
 import argparse
-from datetime import datetime, timedelta, timezone
+import csv
 import functools
 import json
-import unittest
 import operator
 import pathlib
 import typing
+import unittest
+from datetime import datetime, timedelta, timezone
+from io import StringIO
 
 import pdfminer.layout
 
 import pdfannots
 import pdfannots.utils
-from pdfannots.types import AnnotationType
-from pdfannots.printer.markdown import MarkdownPrinter, GroupedMarkdownPrinter
+from pdfannots.printer.csv import CsvPrinter
 from pdfannots.printer.json import JsonPrinter
+from pdfannots.printer.jsonl import JsonlPrinter
+from pdfannots.printer.markdown import GroupedMarkdownPrinter, MarkdownPrinter
+from pdfannots.printer.todocsv import TodocsvPrinter
+from pdfannots.types import AnnotationType
 
 
 class UnitTests(unittest.TestCase):
@@ -294,23 +299,109 @@ class JsonPrinterTest(PrinterTestBase):
         self.assertTrue(isinstance(j, list))
         self.assertEqual(len(j), 8)
 
-    def test_files(self) -> None:
+    def test_printfile(self) -> None:
         args = argparse.Namespace()
         args.printfilename = True
         args.remove_hyphens = False
         p = JsonPrinter(args)
 
-        # print the same file twice
-        s = p.begin()
-        for _ in range(2):
-            s += functools.reduce(operator.add, p.print_file('dummyfile', self.doc))
-        s += p.end()
+        j = json.loads(
+            p.begin()
+            + functools.reduce(operator.add, p.print_file('dummyfile', self.doc))
+            + p.end())
 
-        j = json.loads(s)
+        self.assertTrue(isinstance(j, dict))
+        self.assertTrue('dummyfile' in j)
+        self.assertTrue(isinstance(j['dummyfile'], list))
+        self.assertEqual(len(j['dummyfile']), 8)
 
-        self.assertTrue(isinstance(j, list))
-        self.assertEqual(len(j), 2)
-        self.assertEqual(j[0], j[1])
+
+class JsonlPrinterTest(PrinterTestBase):
+    def test_flat(self) -> None:
+        args = argparse.Namespace()
+        args.remove_hyphens = False
+        p = JsonlPrinter(args)
+
+        j = json.loads(
+            p.begin()
+            + functools.reduce(operator.add, p.print_file('dummyfile', self.doc))
+            + p.end())
+
+        self.assertTrue(isinstance(j, dict))
+        self.assertEqual(j.get('file', ''), 'dummyfile')
+        self.assertEqual(len(j.get('annotations', [])), 8)
+
+    def test_multiple(self) -> None:
+        args = argparse.Namespace()
+        args.remove_hyphens = False
+        p = JsonlPrinter(args)
+
+        output = (
+            p.begin()
+            + functools.reduce(operator.add, p.print_file('a.pdf', self.doc))
+            + functools.reduce(operator.add, p.print_file('b.pdf', self.doc))
+            + p.end()).splitlines()
+
+        self.assertEqual(len(output), 2)
+
+        a = json.loads(output[0])
+        b = json.loads(output[1])
+
+        self.assertTrue(isinstance(a, dict))
+        self.assertEqual(a.get('file', ''), 'a.pdf')
+        self.assertEqual(len(a.get('annotations', [])), 8)
+
+        self.assertTrue(isinstance(b, dict))
+        self.assertEqual(b.get('file', ''), 'b.pdf')
+        self.assertEqual(len(b.get('annotations', [])), 8)
+
+
+class CsvPrinterTest(PrinterTestBase):
+    def test_flat(self) -> None:
+        args = argparse.Namespace()
+        args.printfilename = True
+        args.remove_hyphens = False
+        p = CsvPrinter(args)
+
+        out = (
+            p.begin()
+            + functools.reduce(operator.add, p.print_file('dummyfile', self.doc))
+            + p.end())
+        f = StringIO(out)
+        reader = csv.DictReader(f)
+        result = list(reader)
+
+        self.assertEqual(len(result), 8)
+        self.assertEqual(result[0]['filename'], 'dummyfile')
+        self.assertEqual(result[0]['text'], 'recent Intel CPUs have introduced')
+
+
+class TodocsvPrinterTest(PrinterTestBase):
+    def test_flat(self) -> None:
+        args = argparse.Namespace()
+        args.printfilename = True
+        args.remove_hyphens = False
+        p = TodocsvPrinter(args)
+
+        out = (
+            p.begin()
+            + functools.reduce(operator.add, p.print_file('dummyfile', self.doc))
+            + p.end())
+        f = StringIO(out)
+        reader = csv.DictReader(f)
+        result = list(reader)
+
+        self.assertEqual(len(result), 8)
+
+        self.assertEqual(result[0]['filename'], 'dummyfile')
+        self.assertEqual(result[0]['location'], 'p1: Introduction')
+        self.assertEqual(result[0]['context'], 'recent Intel CPUs have introduced')
+        self.assertEqual(result[0]['explanation'], '')
+
+        self.assertEqual(result[1]['filename'], 'dummyfile')
+        self.assertEqual(result[1]['location'], 'p1: Introduction')
+        self.assertEqual(result[1]['context'], '-')
+        self.assertEqual(result[1]['explanation'], 'This is a note with no text attached.')
 
 
 if __name__ == "__main__":
