@@ -56,7 +56,7 @@ def parse_args() -> typing.Tuple[argparse.Namespace, LAParams]:
     g.add_argument("--no-group", dest="group", default=True, action="store_false",
                    help="Emit annotations in order, don't group into sections.")
     g.add_argument("--print-filename", dest="printfilename", default=False, action="store_true",
-                   help="Print the filename when it has annotations.")
+                   help="Print the name of each file with annotations.")
     g.add_argument("-w", "--wrap", metavar="COLS", type=int,
                    help="Wrap text at this many output columns.")
 

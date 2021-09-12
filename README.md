@@ -66,6 +66,11 @@ options and invocation.
       the `--cols` parameter to force a fixed page layout for the document
       (e.g. `--cols=2` for a typical 2-column document).
 
+ * If an annotation (such as a StrikeOut) covers solely whitespace, no text is
+   extracted for the annotation, and it will be skipped (with a warning). This
+   is an artifact of the way pdfminer reports whitespace with only an implicit
+   position defined by surrounding characters.
+
  * When extracting text, we remove all hyphens that immediately precede a line
    break and join the adjacent words. This usually produces the best results
    with LaTeX multi-column documents (e.g. "soft-`\n`ware" becomes "software"),

@@ -4,7 +4,7 @@ import enum
 import logging
 import typing
 
-from pdfminer.layout import LTComponent, LTTextLine
+from pdfminer.layout import LTComponent, LTText, LTTextLine
 from pdfminer.pdftypes import PDFObjRef
 
 from .utils import merge_lines
@@ -67,7 +67,7 @@ class Box:
         if overlap_area != 0:
             logger.debug(
                 "Box hit: '%s' %f-%f,%f-%f in %f-%f,%f-%f %2.0f%%",
-                item.get_text(),
+                item.get_text() if isinstance(item, LTText) else '',
                 item.x0, item.x1, item.y0, item.y1,
                 self.x0, self.x1, self.y0, self.y1,
                 100 * overlap_area / item_area)
@@ -116,13 +116,21 @@ class Page:
         assert fixed_columns is None or fixed_columns > 0
         self.pageno = pageno
         self.objid = objid
+        self.label: typing.Optional[str] = None
         self.annots = []
         self.outlines = []
         self.mediabox = Box.from_coords(mediabox)
         self.fixed_columns = fixed_columns
 
     def __repr__(self) -> str:
-        return '<Page %d>' % self.pageno
+        return '<Page #%d>' % self.pageno  # zero-based page index
+
+    def __str__(self) -> str:
+        if self.label:
+            return 'page %s' % self.label
+        else:
+            # + 1 for 1-based page numbers in normal program output (error messages, etc.)
+            return 'page #%d' % (self.pageno + 1)
 
     def __eq__(self, other: typing.Any) -> bool:
         if not isinstance(other, Page):
@@ -152,11 +160,10 @@ class Pos:
         self._pageseq_distance = 0.0
 
     def __str__(self) -> str:
-        # + 1 for 1-based page numbers in normal program output (error messages, etc.)
-        return 'page %d (%.3f,%.3f)' % (self.page.pageno + 1, self.x, self.y)
+        return '%s (%.3f,%.3f)' % (self.page, self.x, self.y)
 
     def __repr__(self) -> str:
-        return '<Pos pg%d (%.3f,%.3f) #%d>' % (self.page.pageno, self.x, self.y, self._pageseq)
+        return '<Pos pg#%d (%.3f,%.3f) #%d>' % (self.page.pageno, self.x, self.y, self._pageseq)
 
     def __lt__(self, other: typing.Any) -> bool:
         if isinstance(other, Pos):
@@ -187,7 +194,7 @@ class Pos:
 
     def item_hit(self, item: LTComponent) -> bool:
         """Is this pos within the bounding box of the given PDF component?"""
-        return (self.x >= item.x0  # type:ignore
+        return (self.x >= item.x0  # type: ignore [no-any-return]
                 and self.x <= item.x1
                 and self.y >= item.y0
                 and self.y <= item.y1)
