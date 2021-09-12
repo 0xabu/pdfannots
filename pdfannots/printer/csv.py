@@ -13,7 +13,8 @@ class CsvPrinter(DictBasedPrinter):
         self.remove_hyphens = args.remove_hyphens  # Whether to remove hyphens across a line break
 
         # Multiple input files in a single output require to have a filename
-        self.printfilename = args.printfilename if len(args.input) < 2 else True
+        self.printfilename = args.printfilename if (
+            not (hasattr(args, "input") and len(args.input) > 1)) else True
 
         self.memcsvfile = io.StringIO()
         self.writer = csv.DictWriter(self.memcsvfile, fieldnames=(
