@@ -41,6 +41,9 @@ class DictBasedPrinter(Printer):
     """
     Base class for printers formatting a dictionary like data-structure
     """
+    all_fieldnames = [
+        "type", "page", "start_xy", "prior_outline",
+        "text", "contents", "author", "created"]
 
     def annot_to_dict(self, doc: Document, annot: Annotation) -> typing.Dict[str, typing.Any]:
         """Convert an annotation to a dictionary representation enabling further encoding."""

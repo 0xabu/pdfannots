@@ -7,9 +7,11 @@ from pdfminer.layout import LAParams
 
 from . import __doc__, __version__, process_file
 from .printer import Printer
-from .printer.markdown import MarkdownPrinter, GroupedMarkdownPrinter
+from .printer.csv import CsvPrinter
 from .printer.json import JsonPrinter
 from .printer.jsonl import JsonlPrinter
+from .printer.markdown import GroupedMarkdownPrinter, MarkdownPrinter
+from .printer.todocsv import TodocsvPrinter
 
 
 def _float_or_disabled(x: str) -> typing.Optional[float]:
@@ -40,7 +42,7 @@ def parse_args() -> typing.Tuple[argparse.Namespace, LAParams]:
                         "columns per page. If unset, PDFMiner's layout detection logic is used.")
     g.add_argument("--keep-hyphens", dest="remove_hyphens", default=True, action="store_false",
                    help="When capturing text across a line break, don't attempt to remove hyphens.")
-    g.add_argument("-f", "--format", choices=["md", "json", "jsonl"], default="md",
+    g.add_argument("-f", "--format", choices=["md", "json", "jsonl", "csv", "todocsv"], default="md",
                    help="Output format (default: markdown).")
 
     g = p.add_argument_group('Options controlling markdown output')
@@ -127,6 +129,10 @@ def main() -> None:
         printer = JsonPrinter(args)
     elif args.format == "jsonl":
         printer = JsonlPrinter(args)
+    elif args.format == "csv":
+        printer = CsvPrinter(args)
+    elif args.format == "todocsv":
+        printer = TodocsvPrinter(args)
 
     def write_if_nonempty(s: str) -> None:
         if s:
