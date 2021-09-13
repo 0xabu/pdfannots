@@ -44,6 +44,7 @@ class DictBasedPrinter(Printer):
     all_fieldnames = [
         "type", "page", "start_xy", "prior_outline",
         "text", "contents", "author", "created"]
+    remove_hyphens = True
 
     def annot_to_dict(self, doc: Document, annot: Annotation) -> typing.Dict[str, typing.Any]:
         """Convert an annotation to a dictionary representation enabling further encoding."""
