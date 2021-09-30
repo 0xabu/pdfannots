@@ -1,5 +1,4 @@
 import abc
-import argparse
 import typing
 
 from ..types import Document
@@ -9,11 +8,6 @@ class Printer(abc.ABC):
     """
     Base class for pretty-printers.
     """
-
-    def __init__(self, args: argparse.Namespace):
-        """
-        Perform initialisation and capture any relevant output options from the args object.
-        """
 
     def begin(self) -> str:
         """Called once prior to print_file call. Returns initial output."""

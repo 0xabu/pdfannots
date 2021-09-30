@@ -1,4 +1,3 @@
-import argparse
 import textwrap
 import typing
 
@@ -80,29 +79,35 @@ class MarkdownPrinter(Printer):
     BULLET_INDENT2 = "   "
     QUOTE_INDENT = BULLET_INDENT2 + "> "
 
-    def __init__(self, args: argparse.Namespace):
-        super().__init__(args)
-        self.printfilename = args.printfilename    # Whether to print file names
-        self.remove_hyphens = args.remove_hyphens  # Whether to remove hyphens across a line break
-        self.wrapcol = args.wrap       # Column at which output is word-wrapped
-        self.condense = args.condense  # Permit use of the condensed format
+    def __init__(
+        self,
+        *,
+        condense: bool = True,                      # Permit use of the condensed format
+        print_filename: bool = False,               # Whether to print file names
+        remove_hyphens: bool = True,                # Whether to remove hyphens across a line break
+        wrap_column: typing.Optional[int] = None,   # Column at which output is word-wrapped
+    ) -> None:
+        self.print_filename = print_filename
+        self.remove_hyphens = remove_hyphens
+        self.wrap_column = wrap_column
+        self.condense = condense
 
-        if self.wrapcol:
+        if self.wrap_column:
             # For bullets, we need two text wrappers: one for the leading
             # bullet on the first paragraph, one without.
             self.bullet_tw1 = textwrap.TextWrapper(
-                width=self.wrapcol,
+                width=self.wrap_column,
                 initial_indent=self.BULLET_INDENT1,
                 subsequent_indent=self.BULLET_INDENT2)
 
             self.bullet_tw2 = textwrap.TextWrapper(
-                width=self.wrapcol,
+                width=self.wrap_column,
                 initial_indent=self.BULLET_INDENT2,
                 subsequent_indent=self.BULLET_INDENT2)
 
             # For blockquotes, each line is prefixed with "> "
             self.quote_tw = textwrap.TextWrapper(
-                width=self.wrapcol,
+                width=self.wrap_column,
                 initial_indent=self.QUOTE_INDENT,
                 subsequent_indent=self.QUOTE_INDENT)
 
@@ -113,7 +118,7 @@ class MarkdownPrinter(Printer):
     ) -> typing.Iterator[str]:
         body_iter = self.emit_body(document)
 
-        if self.printfilename:
+        if self.print_filename:
             # Print the file name, only if there is some output.
             try:
                 first = next(body_iter)
@@ -155,7 +160,7 @@ class MarkdownPrinter(Printer):
             assert quotepos + quotelen <= len(paras)
 
         # emit the first paragraph with the bullet
-        if self.wrapcol:
+        if self.wrap_column:
             ret = self.bullet_tw1.fill(paras[0])
         else:
             ret = self.BULLET_INDENT1 + paras[0]
@@ -170,7 +175,7 @@ class MarkdownPrinter(Printer):
             # if we're going straight to a quote, we don't need an extra newline
             ret = ret + ('\n' if quote and npara == quotepos else '\n\n')
 
-            if self.wrapcol:
+            if self.wrap_column:
                 tw = self.quote_tw if inquote else self.bullet_tw2
                 ret = ret + tw.fill(para)
             else:
@@ -261,9 +266,14 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
         AnnotationType.Squiggly, AnnotationType.StrikeOut, AnnotationType.Underline})
     ALL_SECTIONS = ["highlights", "comments", "nits"]
 
-    def __init__(self, args: argparse.Namespace):
-        super().__init__(args)
-        self.sections = args.sections  # controls the order of sections output
+    def __init__(
+        self,
+        *,
+        sections: typing.Sequence[str] = ALL_SECTIONS,  # controls the order of sections output
+        **kwargs: typing.Any                            # other args -- see superclass
+    ) -> None:
+        super().__init__(**kwargs)
+        self.sections = sections
         self._fmt_header_called: bool
 
     def emit_body(

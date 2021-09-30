@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 
-import argparse
-from datetime import datetime, timedelta, timezone
 import functools
 import json
-import unittest
 import operator
 import pathlib
 import typing
+import unittest
+from datetime import datetime, timedelta, timezone
 
 import pdfminer.layout
 
@@ -242,13 +241,7 @@ class MarkdownPrinterTest(PrinterTestBase):
     # There's not a whole lot of value in testing the precise output format,
     # but let's make sure we produce a non-trivial result and don't crash.
     def test_flat(self) -> None:
-        args = argparse.Namespace()
-        args.printfilename = True
-        args.remove_hyphens = False
-        args.wrap = None
-        args.condense = True
-
-        p = MarkdownPrinter(args)
+        p = MarkdownPrinter(print_filename=True, remove_hyphens=False)
 
         linecount = 0
         charcount = 0
@@ -260,14 +253,7 @@ class MarkdownPrinterTest(PrinterTestBase):
         self.assertGreater(charcount, 500)
 
     def test_grouped(self) -> None:
-        args = argparse.Namespace()
-        args.printfilename = False
-        args.remove_hyphens = True
-        args.wrap = 80
-        args.condense = True
-        args.sections = GroupedMarkdownPrinter.ALL_SECTIONS
-
-        p = GroupedMarkdownPrinter(args)
+        p = GroupedMarkdownPrinter(wrap_column=80)
 
         linecount = 0
         charcount = 0
@@ -281,10 +267,7 @@ class MarkdownPrinterTest(PrinterTestBase):
 
 class JsonPrinterTest(PrinterTestBase):
     def test_flat(self) -> None:
-        args = argparse.Namespace()
-        args.printfilename = False
-        args.remove_hyphens = False
-        p = JsonPrinter(args)
+        p = JsonPrinter(remove_hyphens=False)
 
         j = json.loads(
             p.begin()
@@ -293,24 +276,6 @@ class JsonPrinterTest(PrinterTestBase):
 
         self.assertTrue(isinstance(j, list))
         self.assertEqual(len(j), 8)
-
-    def test_files(self) -> None:
-        args = argparse.Namespace()
-        args.printfilename = True
-        args.remove_hyphens = False
-        p = JsonPrinter(args)
-
-        # print the same file twice
-        s = p.begin()
-        for _ in range(2):
-            s += functools.reduce(operator.add, p.print_file('dummyfile', self.doc))
-        s += p.end()
-
-        j = json.loads(s)
-
-        self.assertTrue(isinstance(j, list))
-        self.assertEqual(len(j), 2)
-        self.assertEqual(j[0], j[1])
 
 
 if __name__ == "__main__":

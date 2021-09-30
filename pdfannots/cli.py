@@ -11,6 +11,10 @@ from .printer.markdown import MarkdownPrinter, GroupedMarkdownPrinter
 from .printer.json import JsonPrinter
 
 
+MD_FORMAT_ARGS = ['print_filename', 'remove_hyphens', 'wrap_column', 'condense', 'sections']
+"""Named of arguments passed to the markdown printers."""
+
+
 def _float_or_disabled(x: str) -> typing.Optional[float]:
     if x.lower().strip() == "disabled":
         return None
@@ -52,9 +56,9 @@ def parse_args() -> typing.Tuple[argparse.Namespace, LAParams]:
                    help="Emit annotations as a blockquote regardless of length.")
     g.add_argument("--no-group", dest="group", default=True, action="store_false",
                    help="Emit annotations in order, don't group into sections.")
-    g.add_argument("--print-filename", dest="printfilename", default=False, action="store_true",
+    g.add_argument("--print-filename", dest="print_filename", default=False, action="store_true",
                    help="Print the name of each file with annotations.")
-    g.add_argument("-w", "--wrap", metavar="COLS", type=int,
+    g.add_argument("-w", "--wrap", dest="wrap_column", metavar="COLS", type=int,
                    help="Wrap text at this many output columns.")
 
     g = p.add_argument_group(
@@ -121,9 +125,10 @@ def main() -> None:
     # construct appropriate Printer
     printer: Printer
     if args.format == "md":
-        printer = (GroupedMarkdownPrinter if args.group else MarkdownPrinter)(args)
+        mdargs = {k: getattr(args, k) for k in MD_FORMAT_ARGS}
+        printer = (GroupedMarkdownPrinter if args.group else MarkdownPrinter)(**mdargs)
     elif args.format == "json":
-        printer = JsonPrinter(args)
+        printer = JsonPrinter(remove_hyphens=args.remove_hyphens)
 
     def write_if_nonempty(s: str) -> None:
         if s:
