@@ -194,7 +194,7 @@ class Pos:
 
     def item_hit(self, item: LTComponent) -> bool:
         """Is this pos within the bounding box of the given PDF component?"""
-        return (self.x >= item.x0  # type: ignore [no-any-return]
+        return (self.x >= item.x0
                 and self.x <= item.x1
                 and self.y >= item.y0
                 and self.y <= item.y1)

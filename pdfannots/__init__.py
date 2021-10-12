@@ -187,8 +187,7 @@ def _get_page_labels(doc: PDFDocument) -> typing.Iterator[str]:
             yield prefix + label
 
 
-class _PDFProcessor(PDFLayoutAnalyzer):  # type:ignore
-    # (pdfminer lacks type annotations)
+class _PDFProcessor(PDFLayoutAnalyzer):
     """
     PDF processor class.
 
