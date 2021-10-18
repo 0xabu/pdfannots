@@ -82,7 +82,7 @@ def parse_args() -> typing.Tuple[argparse.Namespace, LAParams]:
              "is specified relative to the character width. Default: %s" % laparams.word_margin)
     g.add_argument(
         "--line-margin", metavar="REL_HEIGHT", type=float, default=laparams.line_margin,
-        help="If two lines are are close together they are considered to "
+        help="If two lines are close together they are considered to "
              "be part of the same paragraph. The margin is specified "
              "relative to the height of a line. Default: %s" % laparams.line_margin)
     g.add_argument(
