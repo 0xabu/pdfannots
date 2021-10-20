@@ -29,11 +29,12 @@ pdfminer.settings.STRICT = False
 
 logger = logging.getLogger(__name__)
 
-ANNOT_SUBTYPES = {e.name: e for e in AnnotationType}
+ANNOT_SUBTYPES: typing.Dict[PSLiteral, AnnotationType] = {
+    PSLiteralTable.intern(e.name): e for e in AnnotationType}
 
 
 def _mkannotation(
-    pa: typing.Any,
+    pa: typing.Dict[str, typing.Any],
     page: Page
 ) -> typing.Optional[Annotation]:
     """
@@ -44,10 +45,15 @@ def _mkannotation(
     """
 
     subtype = pa.get('Subtype')
-    try:
-        annot_type = ANNOT_SUBTYPES[subtype.name]
-    except (TypeError, KeyError):
-        # subtype is missing (None), or is an unknown/unsupported type
+    annot_type = None
+    if isinstance(subtype, PSLiteral):
+        try:
+            annot_type = ANNOT_SUBTYPES[subtype]
+        except KeyError:
+            pass
+
+    if annot_type is None:
+        logger.warning("Unsupported annotation subtype: %r", subtype)
         return None
 
     contents = pa.get('Contents')
@@ -445,7 +451,7 @@ def process_file(
         # Construct Annotation objects, and append them to the page.
         for pa in pdftypes.resolve1(pdfpage.annots) if pdfpage.annots else []:
             if isinstance(pa, pdftypes.PDFObjRef):
-                annot = _mkannotation(pa.resolve(), page)
+                annot = _mkannotation(pdftypes.dict_value(pa), page)
                 if annot is not None:
                     page.annots.append(annot)
             else:
