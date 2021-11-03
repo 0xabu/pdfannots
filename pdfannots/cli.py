@@ -36,8 +36,8 @@ def parse_args() -> typing.Tuple[argparse.Namespace, LAParams]:
     g = p.add_argument_group('Basic options')
     g.add_argument("-p", "--progress", default=False, action="store_true",
                    help="Emit progress information to stderr.")
-    g.add_argument("-o", metavar="OUTFILE", type=argparse.FileType("w"), dest="output",
-                   default=sys.stdout, help="Output file (default is stdout).")
+    g.add_argument("-o", metavar="OUTFILE", type=argparse.FileType("w", encoding="utf-8"),
+                   dest="output", default=sys.stdout, help="Output file (default is stdout).")
     g.add_argument("-n", "--cols", default=None, type=int, metavar="COLS", dest="cols",
                    help="Assume a fixed top-to-bottom left-to-right page layout with this many "
                         "columns per page. If unset, PDFMiner's layout detection logic is used.")
