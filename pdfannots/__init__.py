@@ -53,7 +53,8 @@ def _mkannotation(
             pass
 
     if annot_type is None:
-        logger.warning("Unsupported annotation subtype: %r", subtype)
+        if subtype is not PSLiteralTable.intern('Link'):
+            logger.warning("Unsupported annotation subtype: %r", subtype)
         return None
 
     contents = pa.get('Contents')
