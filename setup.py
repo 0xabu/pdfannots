@@ -29,7 +29,6 @@ def main() -> None:
             'Topic :: Text Processing',
             'License :: OSI Approved :: MIT License',
             'Programming Language :: Python :: 3',
-            'Programming Language :: Python :: 3.6',
             'Programming Language :: Python :: 3.7',
             'Programming Language :: Python :: 3.8',
             'Programming Language :: Python :: 3.9',
@@ -41,7 +40,7 @@ def main() -> None:
                 'pdfannots=pdfannots.cli:main',
             ],
         },
-        python_requires='>=3.6',
+        python_requires='>=3.7',
         install_requires=['pdfminer.six'],
     )
 

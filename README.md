@@ -40,7 +40,7 @@ options and invocation.
 
 ### Dependencies
 
- * Python >= 3.6
+ * Python >= 3.7
  * [pdfminer.six](https://github.com/pdfminer/pdfminer.six)
 
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import bisect
 import datetime
 import enum
@@ -31,12 +33,12 @@ class Box:
         self.y1 = y1
 
     @staticmethod
-    def from_item(item: LTComponent) -> "Box":
+    def from_item(item: LTComponent) -> Box:
         """Construct a Box from the bounding box of a given PDF component."""
         return Box(item.x0, item.y0, item.x1, item.y1)
 
     @staticmethod
-    def from_coords(coords: BoxCoords) -> "Box":
+    def from_coords(coords: BoxCoords) -> Box:
         """Construct a Box from the given PDF coordinates."""
         (x0, y0, x1, y1) = coords
         return Box(x0, y0, x1, y1)
@@ -53,7 +55,7 @@ class Box:
         """Return the height of the box."""
         return self.y1 - self.y0
 
-    def get_overlap(self, other: "Box") -> float:
+    def get_overlap(self, other: Box) -> float:
         """Compute the overlapping area (if any) with the provided box."""
         x_overlap = max(0, min(other.x1, self.x1) - max(other.x0, self.x0))
         y_overlap = max(0, min(other.y1, self.y1) - max(other.y0, self.y0))
@@ -102,8 +104,8 @@ class Page:
     link to somewhere on the page.
     """
 
-    annots: typing.List["Annotation"]
-    outlines: typing.List["Outline"]
+    annots: typing.List[Annotation]
+    outlines: typing.List[Outline]
 
     def __init__(
         self,
