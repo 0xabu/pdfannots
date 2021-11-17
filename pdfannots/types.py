@@ -234,11 +234,19 @@ class ObjectWithPos:
 
 class AnnotationType(enum.Enum):
     """A supported PDF annotation type. Enumerant names match the Subtype names of the PDF spec."""
+
+    # A "sticky note" comment annotation.
     Text = enum.auto()
+
+    # Markup annotations that apply to one or more regions on the page.
     Highlight = enum.auto()
     Squiggly = enum.auto()
     StrikeOut = enum.auto()
     Underline = enum.auto()
+
+    # A single rectangle, that is abused by some Apple tools to render custom
+    # highlights. We do not attempt to capture the affected text.
+    Square = enum.auto()
 
 
 class Annotation(ObjectWithPos):
@@ -268,19 +276,19 @@ class Annotation(ObjectWithPos):
             self,
             page: Page,
             subtype: AnnotationType,
-            coords: typing.Optional[typing.Sequence[float]] = None,
+            quadpoints: typing.Optional[typing.Sequence[float]] = None,
             rect: typing.Optional[BoxCoords] = None,
             contents: typing.Optional[str] = None,
             author: typing.Optional[str] = None,
             created: typing.Optional[datetime.datetime] = None):
 
-        # Construct boxes from coords
+        # Construct boxes from quadpoints
         boxes = []
-        if coords:
-            assert len(coords) % 8 == 0
-            while coords != []:
-                (x0, y0, x1, y1, x2, y2, x3, y3) = coords[:8]
-                coords = coords[8:]
+        if quadpoints is not None:
+            assert len(quadpoints) % 8 == 0
+            while quadpoints != []:
+                (x0, y0, x1, y1, x2, y2, x3, y3) = quadpoints[:8]
+                quadpoints = quadpoints[8:]
                 xvals = [x0, x1, x2, x3]
                 yvals = [y0, y1, y2, y3]
                 box = Box(min(xvals), min(yvals), max(xvals), max(yvals))

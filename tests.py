@@ -133,6 +133,22 @@ class Issue13(ExtractionTestBase):
         self.assertEqual(a.gettext(), 'This is a sample statement.')
 
 
+class Issue46(ExtractionTestBase):
+    filename = 'issue46.pdf'
+
+    def test(self) -> None:
+        self.assertEqual(len(self.annots), 3)
+
+        self.assertEqual(self.annots[0].subtype, AnnotationType.Highlight)
+        self.assertEqual(self.annots[0].gettext(), 'C – Curate')
+
+        self.assertEqual(self.annots[1].subtype, AnnotationType.Square)
+        self.assertEqual(self.annots[1].gettext(), None)
+
+        self.assertEqual(self.annots[2].subtype, AnnotationType.Highlight)
+        self.assertEqual(self.annots[2].gettext(), 'This was a novel idea at the time')
+
+
 class Pr24(ExtractionTestBase):
     filename = 'pr24.pdf'
 

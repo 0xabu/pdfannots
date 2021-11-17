@@ -62,8 +62,12 @@ def _mkannotation(
         # decode as string, normalise line endings, replace special characters
         contents = cleanup_text(pdfminer.utils.decode_text(contents))
 
-    coords = pdftypes.resolve1(pa.get('QuadPoints'))
+    # Rect defines the location of the annotation on the page
     rect = pdftypes.resolve1(pa.get('Rect'))
+
+    # QuadPoints are defined only for "markup" annotations (Highlight, Underline, StrikeOut,
+    # Squiggly), where they specify the quadrilaterals (boxes) covered by the annotation.
+    quadpoints = pdftypes.resolve1(pa.get('QuadPoints'))
 
     author = pdftypes.resolve1(pa.get('T'))
     if author is not None:
@@ -80,7 +84,7 @@ def _mkannotation(
         createds = pdfminer.utils.decode_text(createds)
         created = decode_datetime(createds)
 
-    return Annotation(page, annot_type, coords, rect,
+    return Annotation(page, annot_type, quadpoints, rect,
                       contents, author=author, created=created)
 
 
