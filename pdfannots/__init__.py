@@ -136,8 +136,8 @@ def _get_page_labels(doc: PDFDocument) -> typing.Iterator[str]:
 
     try:
         labels_tree = pdftypes.dict_value(doc.catalog['PageLabels'])
-    except (pdftypes.PDFTypeError, KeyError):
-        raise PDFNoPageLabels
+    except (pdftypes.PDFTypeError, KeyError) as ex:
+        raise PDFNoPageLabels from ex
 
     total_pages = pdftypes.int_value(pdftypes.dict_value(doc.catalog['Pages'])['Count'])
 
