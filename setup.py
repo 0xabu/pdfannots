@@ -14,10 +14,9 @@ def get_version_from_file(filename: pathlib.Path) -> str:
 
 def main() -> None:
     here = pathlib.Path(__file__).parent.resolve()
-    name = 'pdfannots'
     setup(
-        name=name,
-        version=get_version_from_file(here / name / '__init__.py'),
+        name='pdfannots',
+        version=get_version_from_file(here / 'pdfannots' / '__init__.py'),
         description='Tool to extract and pretty-print PDF annotations for reviewing',
         long_description=(here / 'README.md').read_text(),
         long_description_content_type='text/markdown',
@@ -36,6 +35,7 @@ def main() -> None:
             'Programming Language :: Python :: 3.10',
         ],
         packages=find_packages(include=['pdfannots', 'pdfannots.*']),
+        package_data={'pdfannots': ['py.typed']},
         entry_points={
             'console_scripts': [
                 'pdfannots=pdfannots.cli:main',
