@@ -46,15 +46,15 @@ def _mkannotation(
 
     subtype = pa.get('Subtype')
     annot_type = None
-    if isinstance(subtype, PSLiteral):
-        try:
-            annot_type = ANNOT_SUBTYPES[subtype]
-        except KeyError:
-            pass
+    assert isinstance(subtype, PSLiteral)
+    try:
+        annot_type = ANNOT_SUBTYPES[subtype]
+    except KeyError:
+        pass
 
     if annot_type is None:
         if subtype is not PSLiteralTable.intern('Link'):
-            logger.warning("Unsupported annotation subtype: %r", subtype)
+            logger.warning("Unsupported %s annotation ignored on %s", subtype.name, page)
         return None
 
     contents = pa.get('Contents')
