@@ -4,7 +4,7 @@ import enum
 import logging
 import typing
 
-from pdfminer.layout import LTComponent, LTText, LTTextLine
+from pdfminer.layout import LTComponent, LTText
 from pdfminer.pdftypes import PDFObjRef
 
 from .utils import merge_lines
@@ -199,15 +199,15 @@ class Pos:
                 and self.y >= item.y0
                 and self.y <= item.y1)
 
-    def update_pageseq(self, line: LTTextLine, pageseq: int) -> None:
-        """If close-enough to the text line, adopt its sequence number."""
+    def update_pageseq(self, component: LTComponent, pageseq: int) -> None:
+        """If close-enough to the given component, adopt its sequence number."""
         assert pageseq > 0
-        if self.item_hit(line):
-            # This pos is inside the line area
+        if self.item_hit(component):
+            # This pos is inside the component area
             self._pageseq = pageseq
             self._pageseq_distance = 0
         else:
-            d = Box.from_item(line).square_of_distance_to_closest_point((self.x, self.y))
+            d = Box.from_item(component).square_of_distance_to_closest_point((self.x, self.y))
             if self._pageseq == 0 or self._pageseq_distance > d:
                 self._pageseq = pageseq
                 self._pageseq_distance = d
@@ -226,10 +226,10 @@ class ObjectWithPos:
             return self.pos < other.pos
         return NotImplemented
 
-    def update_pageseq(self, line: LTTextLine, pageseq: int) -> None:
+    def update_pageseq(self, component: LTComponent, pageseq: int) -> None:
         """Delegates to Pos.update_pageseq"""
         if self.pos is not None:
-            self.pos.update_pageseq(line, pageseq)
+            self.pos.update_pageseq(component, pageseq)
 
 
 class AnnotationType(enum.Enum):
