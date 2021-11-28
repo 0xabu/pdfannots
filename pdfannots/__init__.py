@@ -12,8 +12,8 @@ import typing
 
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
-from pdfminer.layout import (
-    LAParams, LTContainer, LTAnno, LTChar, LTPage, LTTextBox, LTTextLine, LTItem, LTComponent)
+from pdfminer.layout import (LAParams, LTAnno, LTChar, LTComponent, LTContainer, LTFigure, LTItem,
+                             LTPage, LTTextBox, LTTextLine)
 from pdfminer.converter import PDFLayoutAnalyzer
 from pdfminer.pdfparser import PDFParser
 from pdfminer.pdfdocument import PDFDocument, PDFNoOutlines
@@ -46,15 +46,15 @@ def _mkannotation(
 
     subtype = pa.get('Subtype')
     annot_type = None
-    if isinstance(subtype, PSLiteral):
-        try:
-            annot_type = ANNOT_SUBTYPES[subtype]
-        except KeyError:
-            pass
+    assert isinstance(subtype, PSLiteral)
+    try:
+        annot_type = ANNOT_SUBTYPES[subtype]
+    except KeyError:
+        pass
 
     if annot_type is None:
         if subtype is not PSLiteralTable.intern('Link'):
-            logger.warning("Unsupported annotation subtype: %r", subtype)
+            logger.warning("Unsupported %s annotation ignored on %s", subtype.name, page)
         return None
 
     contents = pa.get('Contents')
@@ -213,7 +213,7 @@ class _PDFProcessor(PDFLayoutAnalyzer):  # type:ignore
 
     page: typing.Optional[Page]     # Page being processed.
     charseq: int                    # Character sequence number within the page.
-    lineseq: int                    # Line sequence number within the page.
+    compseq: int                    # Component sequence number within the page.
     recent_text: typing.Deque[str]  # Rotating buffer of recent text, for context.
     _lasthit: typing.FrozenSet[Annotation]  # Annotations hit by the most recent character.
     _curline: typing.Set[Annotation]        # Annotations hit somewhere on the current line.
@@ -233,7 +233,7 @@ class _PDFProcessor(PDFLayoutAnalyzer):  # type:ignore
     def clear(self) -> None:
         """Reset our internal per-page state."""
         self.charseq = 0
-        self.lineseq = 0
+        self.compseq = 0
         self.recent_text.clear()
         self.context_subscribers.clear()
         self._lasthit = frozenset()
@@ -261,13 +261,13 @@ class _PDFProcessor(PDFLayoutAnalyzer):  # type:ignore
 
         self.page = None
 
-    def update_lineseq(self, line: LTTextLine) -> None:
+    def update_pageseq(self, component: LTComponent) -> None:
         """Assign sequence numbers for objects on the page based on the nearest line of text."""
         assert self.page is not None
-        self.lineseq += 1
+        self.compseq += 1
 
         for x in itertools.chain(self.page.annots, self.page.outlines):
-            x.update_pageseq(line, self.lineseq)
+            x.update_pageseq(component, self.compseq)
 
     def test_boxes(self, item: LTComponent) -> None:
         """Update the set of annotations whose boxes intersect with the area of the given item."""
@@ -344,9 +344,10 @@ class _PDFProcessor(PDFLayoutAnalyzer):  # type:ignore
 
         Ref: https://pdfminersix.readthedocs.io/en/latest/topic/converting_pdf_to_text.html
         """
-        # Assign sequence numbers to items on the page based on their proximity to lines of text.
-        if isinstance(item, LTTextLine):
-            self.update_lineseq(item)
+        # Assign sequence numbers to items on the page based on their proximity to lines of text or
+        # to figures (which may contain bare LTChar elements).
+        if isinstance(item, (LTTextLine, LTFigure)):
+            self.update_pageseq(item)
 
         # If it's a container, recurse on nested items.
         if isinstance(item, LTContainer):
