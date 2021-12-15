@@ -31,6 +31,15 @@ logger = logging.getLogger(__name__)
 
 ANNOT_SUBTYPES: typing.Dict[PSLiteral, AnnotationType] = {
     PSLiteralTable.intern(e.name): e for e in AnnotationType}
+"""Mapping from PSliteral to our own enumerant, for supported annotation types."""
+
+IGNORED_ANNOT_SUBTYPES = \
+    frozenset(PSLiteralTable.intern(n) for n in (
+        'Link',   # Links are used for internal document links (e.g. to other pages).
+        'Popup',  # Controls the on-screen appearance of other annotations. TODO: we may want to
+                  # check for an optional 'Contents' field for alternative human-readable contents.
+    ))
+"""Annotation types that we ignore without issuing a warning."""
 
 
 def _mkannotation(
@@ -53,7 +62,7 @@ def _mkannotation(
         pass
 
     if annot_type is None:
-        if subtype is not PSLiteralTable.intern('Link'):
+        if subtype not in IGNORED_ANNOT_SUBTYPES:
             logger.warning("Unsupported %s annotation ignored on %s", subtype.name, page)
         return None
 
