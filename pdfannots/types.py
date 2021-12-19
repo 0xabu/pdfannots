@@ -248,6 +248,9 @@ class AnnotationType(enum.Enum):
     # highlights. We do not attempt to capture the affected text.
     Square = enum.auto()
 
+    # Free-form text written somewhere on the page.
+    FreeText = enum.auto()
+
 
 class Annotation(ObjectWithPos):
     """
