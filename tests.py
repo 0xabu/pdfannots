@@ -244,6 +244,16 @@ class Landscape2Column(ExtractionTestBase):
         self.assertStartsWith(post, ' when our power of choice is untrammeled and when nothing')
 
 
+class FreeTextAnnotation(ExtractionTestBase):
+    filename = 'FreeText-annotation.pdf'
+
+    def test(self) -> None:
+        self.assertEqual(len(self.annots), 1)
+        self.assertEqual(self.annots[0].subtype, AnnotationType.FreeText)
+        self.assertEqual(self.annots[0].contents, 'Annotation with subtype "FreeText".')
+        self.assertEqual(self.annots[0].gettext(), None)
+
+
 class PrinterTestBase(unittest.TestCase):
     filename = 'hotos17.pdf'
 
