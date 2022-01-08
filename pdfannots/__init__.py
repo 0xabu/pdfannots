@@ -2,7 +2,7 @@
 Tool to extract and pretty-print PDF annotations for reviewing.
 """
 
-__version__ = '0.2'
+__version__ = '0.3'
 
 import bisect
 import collections
