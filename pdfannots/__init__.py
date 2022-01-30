@@ -126,7 +126,7 @@ def _get_outlines(doc: PDFDocument) -> typing.Iterator[Outline]:
 
             if not isinstance(pageref, (int, pdftypes.PDFObjRef)):
                 logger.warning("Unsupported pageref in outline: %s", pageref)
-            elif not (isinstance(targetx, float) and isinstance(targety, float)):
+            elif not (isinstance(targetx, (int, float)) and isinstance(targety, (int, float))):
                 logger.warning("Unsupported target in outline: (%s, %s)", targetx, targety)
             else:
                 yield Outline(title, pageref, (targetx, targety))
