@@ -124,10 +124,12 @@ def _get_outlines(doc: PDFDocument) -> typing.Iterator[Outline]:
         if dest[1] is PSLiteralTable.intern('XYZ'):
             (pageref, _, targetx, targety) = dest[:4]
 
-            if isinstance(pageref, (int, pdftypes.PDFObjRef)):
-                yield Outline(title, pageref, (targetx, targety))
-            else:
+            if not isinstance(pageref, (int, pdftypes.PDFObjRef)):
                 logger.warning("Unsupported pageref in outline: %s", pageref)
+            elif not (isinstance(targetx, float) and isinstance(targety, float)):
+                logger.warning("Unsupported target in outline: (%s, %s)", targetx, targety)
+            else:
+                yield Outline(title, pageref, (targetx, targety))
 
 
 class PDFNoPageLabels(Exception):
