@@ -23,7 +23,7 @@ import pdfminer.settings
 import pdfminer.utils
 
 from .types import Page, Outline, AnnotationType, Annotation, Document
-from .utils import cleanup_text, decode_datetime, format_alpha, format_roman
+from .utils import cleanup_text, decode_datetime
 
 pdfminer.settings.STRICT = False
 
@@ -130,83 +130,6 @@ def _get_outlines(doc: PDFDocument) -> typing.Iterator[Outline]:
                 logger.warning("Unsupported target in outline: (%s, %s)", targetx, targety)
             else:
                 yield Outline(title, pageref, (targetx, targety))
-
-
-class PDFNoPageLabels(Exception):
-    pass
-
-
-def _get_page_labels(doc: PDFDocument) -> typing.Iterator[str]:
-    """
-    Generate page label strings for the PDF document.
-
-    If the document includes page labels, return a generator of strings, one per page.
-    If not, raise PDFNoPageLabels.
-    """
-    assert doc.catalog is not None
-
-    try:
-        labels_tree = pdftypes.dict_value(doc.catalog['PageLabels'])
-    except (pdftypes.PDFTypeError, KeyError) as ex:
-        raise PDFNoPageLabels from ex
-
-    total_pages = pdftypes.int_value(pdftypes.dict_value(doc.catalog['Pages'])['Count'])
-
-    def walk_number_tree(td: typing.Dict[typing.Any, typing.Any]
-                         ) -> typing.Iterator[
-                             typing.Tuple[int, typing.Dict[typing.Any, typing.Any]]]:
-        """
-        Walk a number tree node dictionary, yielding (page index, label dict) tuples.
-
-        See PDF spec, section 3.8.5.
-        """
-        if 'Nums' in td:  # Leaf node
-            objs = pdftypes.list_value(td['Nums'])
-            for (k, v) in pdfminer.utils.choplist(2, objs):
-                yield pdftypes.int_value(k), pdftypes.dict_value(v)
-
-        if 'Kids' in td:  # Intermediate node
-            for child_ref in pdftypes.list_value(td['Kids']):
-                yield from walk_number_tree(pdftypes.dict_value(child_ref))
-
-    # Pass 1: find index ranges
-    range_indices: typing.List[int] = []
-    label_dicts: typing.List[typing.Dict[typing.Any, typing.Any]] = []
-    for (index, d) in walk_number_tree(labels_tree):
-        assert 0 <= index < total_pages
-        if range_indices == []:
-            assert index == 0  # Tree must include page index 0
-        else:
-            assert index > range_indices[-1]  # Tree must be sorted
-
-        range_indices.append(index)
-        label_dicts.append(d)
-
-    # Pass 2: emit page labels
-    for i in range(len(range_indices)):
-        range_start = range_indices[i]
-        range_limit = range_indices[i + 1] if i + 1 < len(range_indices) else total_pages
-
-        d = label_dicts[i]
-        style = d.get('S')
-        prefix = pdfminer.utils.decode_text(pdftypes.str_value(d.get('P', b'')))
-        first = pdftypes.int_value(d.get('St', 1))
-
-        for value in range(first, first + range_limit - range_start):
-            if style is PSLiteralTable.intern('D'):    # Decimal arabic numerals
-                label = str(value)
-            elif style is PSLiteralTable.intern('R'):  # Uppercase roman numerals
-                label = format_roman(value).upper()
-            elif style is PSLiteralTable.intern('r'):  # Lowercase roman numerals
-                label = format_roman(value)
-            elif style is PSLiteralTable.intern('A'):  # Uppercase letters A-Z, AA-ZZ, etc.
-                label = format_alpha(value).upper()
-            elif style is PSLiteralTable.intern('a'):  # Lowercase letters a-z, aa-zz, etc.
-                label = format_alpha(value)
-            else:
-                label = ''
-
-            yield prefix + label
 
 
 class _PDFProcessor(PDFLayoutAnalyzer):  # type:ignore
@@ -419,7 +342,7 @@ def process_file(
 
     emit_progress(file.name)
 
-    # Step 1: retrieve outlines if present. Each outline refers to a page, using
+    # Retrieve outlines if present. Each outline refers to a page, using
     # *either* a PDF object ID or an integer page number. These references will
     # be resolved below while rendering pages -- for now we insert them into one
     # of two dicts for later.
@@ -437,26 +360,13 @@ def process_file(
     except Exception as ex:
         logger.warning("Failed to retrieve outlines: %s", ex)
 
-    # Step 2: retrieve page labels, if present.
-    page_labels: typing.Optional[typing.Iterator[str]] = _get_page_labels(doc)
-
-    # Step 3: iterate over all the pages, constructing page objects.
+    # Iterate over all the pages, constructing page objects.
     result = Document()
     for (pageno, pdfpage) in enumerate(PDFPage.create_pages(doc)):
         emit_progress(" %d" % (pageno + 1))
 
-        page = Page(pageno, pdfpage.pageid, pdfpage.mediabox, columns_per_page)
+        page = Page(pageno, pdfpage.pageid, pdfpage.label, pdfpage.mediabox, columns_per_page)
         result.pages.append(page)
-
-        # Retrieve the page's label, but stop trying after an exception is raised.
-        if page_labels is not None:
-            try:
-                page.label = page_labels.__next__()
-            except PDFNoPageLabels:
-                page_labels = None
-            except Exception as ex:
-                logger.warning("Failed to parse page labels: %s", ex)
-                page_labels = None
 
         # Resolve any outlines referring to this page, and link them to the page.
         # Note that outlines may refer to the page number or ID.
