@@ -126,14 +126,20 @@ def _get_outlines(doc: PDFDocument) -> typing.Iterator[Outline]:
 
             if not isinstance(pageref, (int, pdftypes.PDFObjRef)):
                 logger.warning("Unsupported pageref in outline: %s", pageref)
-            elif not (isinstance(targetx, (int, float)) and isinstance(targety, (int, float))):
-                logger.warning("Unsupported target in outline: (%s, %s)", targetx, targety)
             else:
-                yield Outline(title, pageref, (targetx, targety))
+                if targetx is None or targety is None:
+                    # Treat as a general reference to the page
+                    target = None
+                else:
+                    target = (targetx, targety)
+                    if not all(lambda v: isinstance(v, (int, float)) for v in target):
+                        logger.warning("Unsupported target in outline: (%r, %r)", targetx, targety)
+                        target = None
+
+                yield Outline(title, pageref, target)
 
 
-class _PDFProcessor(PDFLayoutAnalyzer):  # type:ignore
-    # (pdfminer lacks type annotations)
+class _PDFProcessor(PDFLayoutAnalyzer):
     """
     PDF processor class.
 

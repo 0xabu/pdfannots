@@ -197,7 +197,7 @@ class Pos:
 
     def item_hit(self, item: LTComponent) -> bool:
         """Is this pos within the bounding box of the given PDF component?"""
-        return (self.x >= item.x0  # type: ignore [no-any-return]
+        return (self.x >= item.x0
                 and self.x <= item.x1
                 and self.y >= item.y0
                 and self.y <= item.y1)
@@ -395,7 +395,7 @@ class Outline(ObjectWithPos):
         self,
         title: str,
         pageref: UnresolvedPage,
-        target: typing.Tuple[float, float]
+        target: typing.Optional[typing.Tuple[float, float]]
     ):
         super().__init__()
         self.title = title
@@ -413,7 +413,12 @@ class Outline(ObjectWithPos):
         else:
             assert self.pageref == page.pageno
 
-        targetx, targety = self.target
+        if self.target is None:
+            # XXX: "first" point on the page, assuming left-to-right top-to-bottom order
+            (targetx, targety) = (page.mediabox.x0, page.mediabox.y1)
+        else:
+            (targetx, targety) = self.target
+
         self.pos = Pos(page, targetx, targety)
 
 

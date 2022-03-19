@@ -1,4 +1,4 @@
 # pip requirements for pdfannots
 # Use as: pip3 install -r requirements.txt
 
-pdfminer.six == 20201018
+pdfminer.six == 20220319
