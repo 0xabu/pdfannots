@@ -1,10 +1,13 @@
-# This workflow will upload a Python Package using Twine when a release is created
-
+# This workflow will build and upload a Python Package using Twine
 name: Upload Python Package to PyPI
 
 on:
+  # Trigger automatically when a release is published
   release:
     types: [published]
+
+  # Also permit manual dispatch
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -21,12 +24,15 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install build twine
+    - name: Extract version
+      id: get-version
+      run: echo "::set-output name=VERSION::$(python setup.py --version)"
     - name: Build package
       run: python -m build
     - name: Check package
       run: twine check --strict dist/*
-    - name: Publish package, only if tagged
-      if: startsWith(github.ref, 'refs/tags/v')
+    - name: Publish package, only if correctly tagged
+      if: github.ref == format('refs/tags/v{0}', steps.get-version.outputs.VERSION)
       run: twine upload --non-interactive --verbose --disable-progress-bar dist/*
       env:
         TWINE_USERNAME: __token__

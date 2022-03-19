@@ -86,6 +86,7 @@ class MarkdownPrinter(Printer):
         print_filename: bool = False,               # Whether to print file names
         remove_hyphens: bool = True,                # Whether to remove hyphens across a line break
         wrap_column: typing.Optional[int] = None,   # Column at which output is word-wrapped
+        **kwargs: typing.Any                        # Other args, ignored
     ) -> None:
         self.print_filename = print_filename
         self.remove_hyphens = remove_hyphens

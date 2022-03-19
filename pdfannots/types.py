@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 import bisect
 import datetime
 import enum
 import logging
 import typing
 
-from pdfminer.layout import LTComponent, LTText, LTTextLine
+from pdfminer.layout import LTComponent, LTText
 from pdfminer.pdftypes import PDFObjRef
 
 from .utils import merge_lines
@@ -31,12 +33,12 @@ class Box:
         self.y1 = y1
 
     @staticmethod
-    def from_item(item: LTComponent) -> "Box":
+    def from_item(item: LTComponent) -> Box:
         """Construct a Box from the bounding box of a given PDF component."""
         return Box(item.x0, item.y0, item.x1, item.y1)
 
     @staticmethod
-    def from_coords(coords: BoxCoords) -> "Box":
+    def from_coords(coords: BoxCoords) -> Box:
         """Construct a Box from the given PDF coordinates."""
         (x0, y0, x1, y1) = coords
         return Box(x0, y0, x1, y1)
@@ -53,7 +55,7 @@ class Box:
         """Return the height of the box."""
         return self.y1 - self.y0
 
-    def get_overlap(self, other: "Box") -> float:
+    def get_overlap(self, other: Box) -> float:
         """Compute the overlapping area (if any) with the provided box."""
         x_overlap = max(0, min(other.x1, self.x1) - max(other.x0, self.x0))
         y_overlap = max(0, min(other.y1, self.y1) - max(other.y0, self.y0))
@@ -102,8 +104,8 @@ class Page:
     link to somewhere on the page.
     """
 
-    annots: typing.List["Annotation"]
-    outlines: typing.List["Outline"]
+    annots: typing.List[Annotation]
+    outlines: typing.List[Outline]
 
     def __init__(
         self,
@@ -199,15 +201,15 @@ class Pos:
                 and self.y >= item.y0
                 and self.y <= item.y1)
 
-    def update_pageseq(self, line: LTTextLine, pageseq: int) -> None:
-        """If close-enough to the text line, adopt its sequence number."""
+    def update_pageseq(self, component: LTComponent, pageseq: int) -> None:
+        """If close-enough to the given component, adopt its sequence number."""
         assert pageseq > 0
-        if self.item_hit(line):
-            # This pos is inside the line area
+        if self.item_hit(component):
+            # This pos is inside the component area
             self._pageseq = pageseq
             self._pageseq_distance = 0
         else:
-            d = Box.from_item(line).square_of_distance_to_closest_point((self.x, self.y))
+            d = Box.from_item(component).square_of_distance_to_closest_point((self.x, self.y))
             if self._pageseq == 0 or self._pageseq_distance > d:
                 self._pageseq = pageseq
                 self._pageseq_distance = d
@@ -226,19 +228,30 @@ class ObjectWithPos:
             return self.pos < other.pos
         return NotImplemented
 
-    def update_pageseq(self, line: LTTextLine, pageseq: int) -> None:
+    def update_pageseq(self, component: LTComponent, pageseq: int) -> None:
         """Delegates to Pos.update_pageseq"""
         if self.pos is not None:
-            self.pos.update_pageseq(line, pageseq)
+            self.pos.update_pageseq(component, pageseq)
 
 
 class AnnotationType(enum.Enum):
     """A supported PDF annotation type. Enumerant names match the Subtype names of the PDF spec."""
+
+    # A "sticky note" comment annotation.
     Text = enum.auto()
+
+    # Markup annotations that apply to one or more regions on the page.
     Highlight = enum.auto()
     Squiggly = enum.auto()
     StrikeOut = enum.auto()
     Underline = enum.auto()
+
+    # A single rectangle, that is abused by some Apple tools to render custom
+    # highlights. We do not attempt to capture the affected text.
+    Square = enum.auto()
+
+    # Free-form text written somewhere on the page.
+    FreeText = enum.auto()
 
 
 class Annotation(ObjectWithPos):
@@ -268,19 +281,19 @@ class Annotation(ObjectWithPos):
             self,
             page: Page,
             subtype: AnnotationType,
-            coords: typing.Optional[typing.Sequence[float]] = None,
+            quadpoints: typing.Optional[typing.Sequence[float]] = None,
             rect: typing.Optional[BoxCoords] = None,
             contents: typing.Optional[str] = None,
             author: typing.Optional[str] = None,
             created: typing.Optional[datetime.datetime] = None):
 
-        # Construct boxes from coords
+        # Construct boxes from quadpoints
         boxes = []
-        if coords:
-            assert len(coords) % 8 == 0
-            while coords != []:
-                (x0, y0, x1, y1, x2, y2, x3, y3) = coords[:8]
-                coords = coords[8:]
+        if quadpoints is not None:
+            assert len(quadpoints) % 8 == 0
+            while quadpoints != []:
+                (x0, y0, x1, y1, x2, y2, x3, y3) = quadpoints[:8]
+                quadpoints = quadpoints[8:]
                 xvals = [x0, x1, x2, x3]
                 yvals = [y0, y1, y2, y3]
                 box = Box(min(xvals), min(yvals), max(xvals), max(yvals))
@@ -381,7 +394,7 @@ class Outline(ObjectWithPos):
         self,
         title: str,
         pageref: UnresolvedPage,
-        target: typing.Tuple[float, float]
+        target: typing.Optional[typing.Tuple[float, float]]
     ):
         super().__init__()
         self.title = title
@@ -399,7 +412,12 @@ class Outline(ObjectWithPos):
         else:
             assert self.pageref == page.pageno
 
-        targetx, targety = self.target
+        if self.target is None:
+            # XXX: "first" point on the page, assuming left-to-right top-to-bottom order
+            (targetx, targety) = (page.mediabox.x0, page.mediabox.y1)
+        else:
+            (targetx, targety) = self.target
+
         self.pos = Pos(page, targetx, targety)
 
 

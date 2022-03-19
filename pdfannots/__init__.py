@@ -2,7 +2,7 @@
 Tool to extract and pretty-print PDF annotations for reviewing.
 """
 
-__version__ = '0.1'
+__version__ = '0.3'
 
 import bisect
 import collections
@@ -12,8 +12,8 @@ import typing
 
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
-from pdfminer.layout import (
-    LAParams, LTContainer, LTAnno, LTChar, LTPage, LTTextBox, LTTextLine, LTItem, LTComponent)
+from pdfminer.layout import (LAParams, LTAnno, LTChar, LTComponent, LTContainer, LTFigure, LTItem,
+                             LTPage, LTTextBox, LTTextLine)
 from pdfminer.converter import PDFLayoutAnalyzer
 from pdfminer.pdfparser import PDFParser
 from pdfminer.pdfdocument import PDFDocument, PDFNoOutlines
@@ -29,11 +29,21 @@ pdfminer.settings.STRICT = False
 
 logger = logging.getLogger(__name__)
 
-ANNOT_SUBTYPES = {e.name: e for e in AnnotationType}
+ANNOT_SUBTYPES: typing.Dict[PSLiteral, AnnotationType] = {
+    PSLiteralTable.intern(e.name): e for e in AnnotationType}
+"""Mapping from PSliteral to our own enumerant, for supported annotation types."""
+
+IGNORED_ANNOT_SUBTYPES = \
+    frozenset(PSLiteralTable.intern(n) for n in (
+        'Link',   # Links are used for internal document links (e.g. to other pages).
+        'Popup',  # Controls the on-screen appearance of other annotations. TODO: we may want to
+                  # check for an optional 'Contents' field for alternative human-readable contents.
+    ))
+"""Annotation types that we ignore without issuing a warning."""
 
 
 def _mkannotation(
-    pa: typing.Any,
+    pa: typing.Dict[str, typing.Any],
     page: Page
 ) -> typing.Optional[Annotation]:
     """
@@ -44,10 +54,16 @@ def _mkannotation(
     """
 
     subtype = pa.get('Subtype')
+    annot_type = None
+    assert isinstance(subtype, PSLiteral)
     try:
-        annot_type = ANNOT_SUBTYPES[subtype.name]
-    except (TypeError, KeyError):
-        # subtype is missing (None), or is an unknown/unsupported type
+        annot_type = ANNOT_SUBTYPES[subtype]
+    except KeyError:
+        pass
+
+    if annot_type is None:
+        if subtype not in IGNORED_ANNOT_SUBTYPES:
+            logger.warning("Unsupported %s annotation ignored on %s", subtype.name, page)
         return None
 
     contents = pa.get('Contents')
@@ -55,8 +71,12 @@ def _mkannotation(
         # decode as string, normalise line endings, replace special characters
         contents = cleanup_text(pdfminer.utils.decode_text(contents))
 
-    coords = pdftypes.resolve1(pa.get('QuadPoints'))
+    # Rect defines the location of the annotation on the page
     rect = pdftypes.resolve1(pa.get('Rect'))
+
+    # QuadPoints are defined only for "markup" annotations (Highlight, Underline, StrikeOut,
+    # Squiggly), where they specify the quadrilaterals (boxes) covered by the annotation.
+    quadpoints = pdftypes.resolve1(pa.get('QuadPoints'))
 
     author = pdftypes.resolve1(pa.get('T'))
     if author is not None:
@@ -73,7 +93,7 @@ def _mkannotation(
         createds = pdfminer.utils.decode_text(createds)
         created = decode_datetime(createds)
 
-    return Annotation(page, annot_type, coords, rect,
+    return Annotation(page, annot_type, quadpoints, rect,
                       contents, author=author, created=created)
 
 
@@ -104,10 +124,19 @@ def _get_outlines(doc: PDFDocument) -> typing.Iterator[Outline]:
         if dest[1] is PSLiteralTable.intern('XYZ'):
             (pageref, _, targetx, targety) = dest[:4]
 
-            if isinstance(pageref, (int, pdftypes.PDFObjRef)):
-                yield Outline(title, pageref, (targetx, targety))
-            else:
+            if not isinstance(pageref, (int, pdftypes.PDFObjRef)):
                 logger.warning("Unsupported pageref in outline: %s", pageref)
+            else:
+                if targetx is None or targety is None:
+                    # Treat as a general reference to the page
+                    target = None
+                else:
+                    target = (targetx, targety)
+                    if not all(lambda v: isinstance(v, (int, float)) for v in target):
+                        logger.warning("Unsupported target in outline: (%r, %r)", targetx, targety)
+                        target = None
+
+                yield Outline(title, pageref, target)
 
 
 class PDFNoPageLabels(Exception):
@@ -125,8 +154,8 @@ def _get_page_labels(doc: PDFDocument) -> typing.Iterator[str]:
 
     try:
         labels_tree = pdftypes.dict_value(doc.catalog['PageLabels'])
-    except (pdftypes.PDFTypeError, KeyError):
-        raise PDFNoPageLabels
+    except (pdftypes.PDFTypeError, KeyError) as ex:
+        raise PDFNoPageLabels from ex
 
     total_pages = pdftypes.int_value(pdftypes.dict_value(doc.catalog['Pages'])['Count'])
 
@@ -201,7 +230,7 @@ class _PDFProcessor(PDFLayoutAnalyzer):
 
     page: typing.Optional[Page]     # Page being processed.
     charseq: int                    # Character sequence number within the page.
-    lineseq: int                    # Line sequence number within the page.
+    compseq: int                    # Component sequence number within the page.
     recent_text: typing.Deque[str]  # Rotating buffer of recent text, for context.
     _lasthit: typing.FrozenSet[Annotation]  # Annotations hit by the most recent character.
     _curline: typing.Set[Annotation]        # Annotations hit somewhere on the current line.
@@ -221,7 +250,7 @@ class _PDFProcessor(PDFLayoutAnalyzer):
     def clear(self) -> None:
         """Reset our internal per-page state."""
         self.charseq = 0
-        self.lineseq = 0
+        self.compseq = 0
         self.recent_text.clear()
         self.context_subscribers.clear()
         self._lasthit = frozenset()
@@ -249,13 +278,13 @@ class _PDFProcessor(PDFLayoutAnalyzer):
 
         self.page = None
 
-    def update_lineseq(self, line: LTTextLine) -> None:
+    def update_pageseq(self, component: LTComponent) -> None:
         """Assign sequence numbers for objects on the page based on the nearest line of text."""
         assert self.page is not None
-        self.lineseq += 1
+        self.compseq += 1
 
         for x in itertools.chain(self.page.annots, self.page.outlines):
-            x.update_pageseq(line, self.lineseq)
+            x.update_pageseq(component, self.compseq)
 
     def test_boxes(self, item: LTComponent) -> None:
         """Update the set of annotations whose boxes intersect with the area of the given item."""
@@ -332,9 +361,10 @@ class _PDFProcessor(PDFLayoutAnalyzer):
 
         Ref: https://pdfminersix.readthedocs.io/en/latest/topic/converting_pdf_to_text.html
         """
-        # Assign sequence numbers to items on the page based on their proximity to lines of text.
-        if isinstance(item, LTTextLine):
-            self.update_lineseq(item)
+        # Assign sequence numbers to items on the page based on their proximity to lines of text or
+        # to figures (which may contain bare LTChar elements).
+        if isinstance(item, (LTTextLine, LTFigure)):
+            self.update_pageseq(item)
 
         # If it's a container, recurse on nested items.
         if isinstance(item, LTContainer):
@@ -444,7 +474,7 @@ def process_file(
         # Construct Annotation objects, and append them to the page.
         for pa in pdftypes.resolve1(pdfpage.annots) if pdfpage.annots else []:
             if isinstance(pa, pdftypes.PDFObjRef):
-                annot = _mkannotation(pa.resolve(), page)
+                annot = _mkannotation(pdftypes.dict_value(pa), page)
                 if annot is not None:
                     page.annots.append(annot)
             else:
