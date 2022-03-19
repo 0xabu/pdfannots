@@ -41,7 +41,7 @@ def main() -> None:
             ],
         },
         python_requires='>=3.7',
-        install_requires=['pdfminer.six'],
+        install_requires=['pdfminer.six >= 20220319'],
     )
 
 
