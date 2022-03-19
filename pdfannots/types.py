@@ -111,6 +111,7 @@ class Page:
         self,
         pageno: int,
         objid: typing.Any,
+        label: typing.Optional[str],
         mediabox: BoxCoords,
         fixed_columns: typing.Optional[int] = None
     ):
@@ -118,7 +119,7 @@ class Page:
         assert fixed_columns is None or fixed_columns > 0
         self.pageno = pageno
         self.objid = objid
-        self.label: typing.Optional[str] = None
+        self.label = label
         self.annots = []
         self.outlines = []
         self.mediabox = Box.from_coords(mediabox)
