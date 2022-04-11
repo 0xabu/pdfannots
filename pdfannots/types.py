@@ -233,11 +233,6 @@ class ObjectWithPos:
     def __init__(self, pos: typing.Optional[Pos] = None):
         self.pos = pos
 
-    def __eq__(self, other: object) -> bool:
-        if isinstance(other, ObjectWithPos):
-            return self.pos == other.pos
-        return NotImplemented
-
     def __lt__(self, other: object) -> bool:
         if isinstance(other, ObjectWithPos):
             assert self.pos is not None
