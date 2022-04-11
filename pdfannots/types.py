@@ -3,6 +3,7 @@ from __future__ import annotations
 import bisect
 import datetime
 import enum
+import functools
 import logging
 import typing
 
@@ -94,6 +95,7 @@ class Box:
         return abs(px - x)**2 + abs(py - y)**2
 
 
+@functools.total_ordering
 class Page:
     """
     Page.
@@ -110,7 +112,7 @@ class Page:
     def __init__(
         self,
         pageno: int,
-        objid: typing.Any,
+        objid: object,
         label: typing.Optional[str],
         mediabox: BoxCoords,
         fixed_columns: typing.Optional[int] = None
@@ -135,17 +137,18 @@ class Page:
             # + 1 for 1-based page numbers in normal program output (error messages, etc.)
             return 'page #%d' % (self.pageno + 1)
 
-    def __eq__(self, other: typing.Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, Page):
             return NotImplemented
         return self.pageno == other.pageno
 
-    def __lt__(self, other: typing.Any) -> bool:
+    def __lt__(self, other: object) -> bool:
         if not isinstance(other, Page):
             return NotImplemented
         return self.pageno < other.pageno
 
 
+@functools.total_ordering
 class Pos:
     """
     A position within the document.
@@ -168,7 +171,14 @@ class Pos:
     def __repr__(self) -> str:
         return '<Pos pg#%d (%.3f,%.3f) #%d>' % (self.page.pageno, self.x, self.y, self._pageseq)
 
-    def __lt__(self, other: typing.Any) -> bool:
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, Pos):
+            return (self.page == other.page
+                    and self.x == other.x
+                    and self.y == other.y)
+        return NotImplemented
+
+    def __lt__(self, other: object) -> bool:
         if isinstance(other, Pos):
             if self.page == other.page:
                 assert self.page is other.page
@@ -216,13 +226,19 @@ class Pos:
                 self._pageseq_distance = d
 
 
+@functools.total_ordering
 class ObjectWithPos:
     """Any object that (eventually) has a logical position on the page."""
 
     def __init__(self, pos: typing.Optional[Pos] = None):
         self.pos = pos
 
-    def __lt__(self, other: typing.Any) -> bool:
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, ObjectWithPos):
+            return self.pos == other.pos
+        return NotImplemented
+
+    def __lt__(self, other: object) -> bool:
         if isinstance(other, ObjectWithPos):
             assert self.pos is not None
             assert other.pos is not None
