@@ -352,8 +352,8 @@ def process_file(
     # *either* a PDF object ID or an integer page number. These references will
     # be resolved below while rendering pages -- for now we insert them into one
     # of two dicts for later.
-    outlines_by_pageno = collections.defaultdict(list)
-    outlines_by_objid = collections.defaultdict(list)
+    outlines_by_pageno: typing.Dict[object, typing.List[Outline]] = collections.defaultdict(list)
+    outlines_by_objid: typing.Dict[object, typing.List[Outline]] = collections.defaultdict(list)
 
     try:
         for o in _get_outlines(doc):
