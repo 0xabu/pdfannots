@@ -27,7 +27,7 @@ from .utils import cleanup_text, decode_datetime
 
 pdfminer.settings.STRICT = False
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('pdfannots')
 
 ANNOT_SUBTYPES: typ.Dict[PSLiteral, AnnotationType] = {
     PSLiteralTable.intern(e.name): e for e in AnnotationType}

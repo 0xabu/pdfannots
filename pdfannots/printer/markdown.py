@@ -1,9 +1,11 @@
+import logging
 import textwrap
 import typing as typ
 
 from . import Printer
 from ..types import AnnotationType, Pos, Annotation, Document
-from .. import logger
+
+logger = logging.getLogger('pdfannots')
 
 MAX_CONTEXT_WORDS = 10
 """Maximum number of words returned by trim_context."""
