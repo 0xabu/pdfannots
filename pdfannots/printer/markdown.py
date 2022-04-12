@@ -1,5 +1,5 @@
 import textwrap
-import typing
+import typing as typ
 
 from . import Printer
 from ..types import AnnotationType, Pos, Annotation, Document
@@ -82,11 +82,11 @@ class MarkdownPrinter(Printer):
     def __init__(
         self,
         *,
-        condense: bool = True,                      # Permit use of the condensed format
-        print_filename: bool = False,               # Whether to print file names
-        remove_hyphens: bool = True,                # Whether to remove hyphens across a line break
-        wrap_column: typing.Optional[int] = None,   # Column at which output is word-wrapped
-        **kwargs: typing.Any                        # Other args, ignored
+        condense: bool = True,                  # Permit use of the condensed format
+        print_filename: bool = False,           # Whether to print file names
+        remove_hyphens: bool = True,            # Whether to remove hyphens across a line break
+        wrap_column: typ.Optional[int] = None,  # Column at which output is word-wrapped
+        **kwargs: typ.Any                       # Other args, ignored
     ) -> None:
         self.print_filename = print_filename
         self.remove_hyphens = remove_hyphens
@@ -116,7 +116,7 @@ class MarkdownPrinter(Printer):
         self,
         filename: str,
         document: Document
-    ) -> typing.Iterator[str]:
+    ) -> typ.Iterator[str]:
         body_iter = self.emit_body(document)
 
         if self.print_filename:
@@ -147,8 +147,8 @@ class MarkdownPrinter(Printer):
 
     def format_bullet(
         self,
-        paras: typing.List[str],
-        quote: typing.Optional[typing.Tuple[int, int]] = None
+        paras: typ.List[str],
+        quote: typ.Optional[typ.Tuple[int, int]] = None
     ) -> str:
         """
         Format a Markdown bullet, wrapped as desired.
@@ -203,7 +203,7 @@ class MarkdownPrinter(Printer):
         self,
         annot: Annotation,
         document: Document,
-        extra: typing.Optional[str] = None
+        extra: typ.Optional[str] = None
     ) -> str:
 
         # capture item text and contents (i.e. the comment), and split the latter into paragraphs
@@ -257,7 +257,7 @@ class MarkdownPrinter(Printer):
     def emit_body(
         self,
         document: Document
-    ) -> typing.Iterator[str]:
+    ) -> typ.Iterator[str]:
         for a in document.iter_annots():
             yield self.format_annot(a, document, a.subtype.name)
 
@@ -270,8 +270,8 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
     def __init__(
         self,
         *,
-        sections: typing.Sequence[str] = ALL_SECTIONS,  # controls the order of sections output
-        **kwargs: typing.Any                            # other args -- see superclass
+        sections: typ.Sequence[str] = ALL_SECTIONS,  # controls the order of sections output
+        **kwargs: typ.Any                            # other args -- see superclass
     ) -> None:
         super().__init__(**kwargs)
         self.sections = sections
@@ -280,7 +280,7 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
     def emit_body(
         self,
         document: Document
-    ) -> typing.Iterator[str]:
+    ) -> typ.Iterator[str]:
 
         self._fmt_header_called = False
 

@@ -4,7 +4,7 @@ import functools
 import json
 import operator
 import pathlib
-import typing
+import typing as typ
 import unittest
 from datetime import datetime, timedelta, timezone
 
@@ -36,7 +36,7 @@ class ExtractionTestBase(unittest.TestCase):
     filename: str
 
     # Permit a test to customise the columns_per_page or LAParams
-    columns_per_page: typing.Optional[int] = None
+    columns_per_page: typ.Optional[int] = None
     laparams = pdfminer.layout.LAParams()
 
     def setUp(self) -> None:

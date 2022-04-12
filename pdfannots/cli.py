@@ -1,7 +1,7 @@
 import argparse
 import logging
 import sys
-import typing
+import typing as typ
 
 from pdfminer.layout import LAParams
 
@@ -15,7 +15,7 @@ MD_FORMAT_ARGS = ['print_filename', 'remove_hyphens', 'wrap_column', 'condense',
 """Named of arguments passed to the markdown printers."""
 
 
-def _float_or_disabled(x: str) -> typing.Optional[float]:
+def _float_or_disabled(x: str) -> typ.Optional[float]:
     if x.lower().strip() == "disabled":
         return None
     try:
@@ -24,7 +24,7 @@ def _float_or_disabled(x: str) -> typing.Optional[float]:
         raise argparse.ArgumentTypeError("invalid float value: {}".format(x)) from ex
 
 
-def parse_args() -> typing.Tuple[argparse.Namespace, LAParams]:
+def parse_args() -> typ.Tuple[argparse.Namespace, LAParams]:
     p = argparse.ArgumentParser(prog='pdfannots', description=__doc__)
 
     p.add_argument('--version', action='version',

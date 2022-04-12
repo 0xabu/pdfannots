@@ -8,7 +8,7 @@ import bisect
 import collections
 import itertools
 import logging
-import typing
+import typing as typ
 
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
@@ -29,7 +29,7 @@ pdfminer.settings.STRICT = False
 
 logger = logging.getLogger(__name__)
 
-ANNOT_SUBTYPES: typing.Dict[PSLiteral, AnnotationType] = {
+ANNOT_SUBTYPES: typ.Dict[PSLiteral, AnnotationType] = {
     PSLiteralTable.intern(e.name): e for e in AnnotationType}
 """Mapping from PSliteral to our own enumerant, for supported annotation types."""
 
@@ -43,9 +43,9 @@ IGNORED_ANNOT_SUBTYPES = \
 
 
 def _mkannotation(
-    pa: typing.Dict[str, typing.Any],
+    pa: typ.Dict[str, typ.Any],
     page: Page
-) -> typing.Optional[Annotation]:
+) -> typ.Optional[Annotation]:
     """
     Given a PDF annotation, capture relevant fields and construct an Annotation object.
 
@@ -97,10 +97,10 @@ def _mkannotation(
                       contents, author=author, created=created)
 
 
-def _get_outlines(doc: PDFDocument) -> typing.Iterator[Outline]:
+def _get_outlines(doc: PDFDocument) -> typ.Iterator[Outline]:
     """Retrieve a list of (unresolved) Outline objects for all recognised outlines in the PDF."""
 
-    def _resolve_dest(dest: typing.Any) -> typing.Any:
+    def _resolve_dest(dest: typ.Any) -> typ.Any:
         if isinstance(dest, bytes):
             dest = pdftypes.resolve1(doc.get_dest(dest))
         elif isinstance(dest, PSLiteral):
@@ -151,17 +151,17 @@ class _PDFProcessor(PDFLayoutAnalyzer):
     CONTEXT_CHARS = 256
     """Maximum number of recent characters to keep as context."""
 
-    page: typing.Optional[Page]     # Page being processed.
-    charseq: int                    # Character sequence number within the page.
-    compseq: int                    # Component sequence number within the page.
-    recent_text: typing.Deque[str]  # Rotating buffer of recent text, for context.
-    _lasthit: typing.FrozenSet[Annotation]  # Annotations hit by the most recent character.
-    _curline: typing.Set[Annotation]        # Annotations hit somewhere on the current line.
+    page: typ.Optional[Page]                # Page being processed.
+    charseq: int                            # Character sequence number within the page.
+    compseq: int                            # Component sequence number within the page.
+    recent_text: typ.Deque[str]             # Rotating buffer of recent text, for context.
+    _lasthit: typ.FrozenSet[Annotation]     # Annotations hit by the most recent character.
+    _curline: typ.Set[Annotation]           # Annotations hit somewhere on the current line.
 
     # Stores annotations that are subscribed to receive their post-annotation
     # context. The first element of each tuple, on which the list is sorted, is
     # the sequence number of the last character to hit the annotation.
-    context_subscribers: typing.List[typing.Tuple[int, Annotation]]
+    context_subscribers: typ.List[typ.Tuple[int, Annotation]]
 
     def __init__(self, rsrcmgr: PDFResourceManager, laparams: LAParams):
         super().__init__(rsrcmgr, laparams=laparams)
@@ -318,10 +318,10 @@ class _PDFProcessor(PDFLayoutAnalyzer):
 
 
 def process_file(
-    file: typing.BinaryIO,
+    file: typ.BinaryIO,
     *,  # Subsequent arguments are keyword-only
-    columns_per_page: typing.Optional[int] = None,
-    emit_progress_to: typing.Optional[typing.TextIO] = None,
+    columns_per_page: typ.Optional[int] = None,
+    emit_progress_to: typ.Optional[typ.TextIO] = None,
     laparams: LAParams = LAParams()
 ) -> Document:
     """
@@ -352,8 +352,8 @@ def process_file(
     # *either* a PDF object ID or an integer page number. These references will
     # be resolved below while rendering pages -- for now we insert them into one
     # of two dicts for later.
-    outlines_by_pageno: typing.Dict[object, typing.List[Outline]] = collections.defaultdict(list)
-    outlines_by_objid: typing.Dict[object, typing.List[Outline]] = collections.defaultdict(list)
+    outlines_by_pageno: typ.Dict[object, typ.List[Outline]] = collections.defaultdict(list)
+    outlines_by_objid: typ.Dict[object, typ.List[Outline]] = collections.defaultdict(list)
 
     try:
         for o in _get_outlines(doc):

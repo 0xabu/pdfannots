@@ -1,5 +1,5 @@
 import abc
-import typing
+import typing as typ
 
 from ..types import Document
 
@@ -18,7 +18,7 @@ class Printer(abc.ABC):
         self,
         filename: str,
         document: Document
-    ) -> typing.Iterator[str]:
+    ) -> typ.Iterator[str]:
         """
         Pretty-print a single document.
 

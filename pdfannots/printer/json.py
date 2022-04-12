@@ -1,5 +1,5 @@
 import json
-import typing
+import typing as typ
 
 from . import Printer
 from ..types import Annotation, Document
@@ -9,7 +9,7 @@ def annot_to_dict(
     doc: Document,
     annot: Annotation,
     remove_hyphens: bool
-) -> typing.Dict[str, typing.Any]:
+) -> typ.Dict[str, typ.Any]:
     """Convert an annotation to a dictionary representation suitable for JSON encoding."""
     assert annot.pos
 
@@ -50,7 +50,7 @@ class JsonPrinter(Printer):
         self,
         filename: str,
         document: Document
-    ) -> typing.Iterator[str]:
+    ) -> typ.Iterator[str]:
         if self.seen_first:
             # The flat array format is incompatible with multiple input files
             # TODO: Ideally we'd catch this at invocation time

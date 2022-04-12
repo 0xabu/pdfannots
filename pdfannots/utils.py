@@ -1,5 +1,5 @@
 import datetime
-import typing
+import typing as typ
 
 CHARACTER_SUBSTITUTIONS = {
     'ﬀ': 'ff',
@@ -65,7 +65,7 @@ def merge_lines(captured_text: str, remove_hyphens: bool = False, strip_space: b
     return ''.join(results)
 
 
-def decode_datetime(dts: str) -> typing.Optional[datetime.datetime]:
+def decode_datetime(dts: str) -> typ.Optional[datetime.datetime]:
     if dts.startswith('D:'):  # seems 'optional but recommended'
         dts = dts[2:]
     dts = dts.replace("'", '')

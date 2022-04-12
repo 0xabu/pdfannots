@@ -5,7 +5,7 @@ import datetime
 import enum
 import functools
 import logging
-import typing
+import typing as typ
 
 from pdfminer.layout import LTComponent, LTText
 from pdfminer.pdftypes import PDFObjRef
@@ -14,10 +14,10 @@ from .utils import merge_lines
 
 logger = logging.getLogger('pdfannots')
 
-Point = typing.Tuple[float, float]
+Point = typ.Tuple[float, float]
 """An (x, y) point in PDF coordinates, i.e. bottom left is 0,0."""
 
-BoxCoords = typing.Tuple[float, float, float, float]
+BoxCoords = typ.Tuple[float, float, float, float]
 """The coordinates of a bounding box (x0, y0, x1, y1)."""
 
 
@@ -106,16 +106,16 @@ class Page:
     link to somewhere on the page.
     """
 
-    annots: typing.List[Annotation]
-    outlines: typing.List[Outline]
+    annots: typ.List[Annotation]
+    outlines: typ.List[Outline]
 
     def __init__(
         self,
         pageno: int,
         objid: object,
-        label: typing.Optional[str],
+        label: typ.Optional[str],
         mediabox: BoxCoords,
-        fixed_columns: typing.Optional[int] = None
+        fixed_columns: typ.Optional[int] = None
     ):
         assert pageno >= 0
         assert fixed_columns is None or fixed_columns > 0
@@ -230,7 +230,7 @@ class Pos:
 class ObjectWithPos:
     """Any object that (eventually) has a logical position on the page."""
 
-    def __init__(self, pos: typing.Optional[Pos] = None):
+    def __init__(self, pos: typ.Optional[Pos] = None):
         self.pos = pos
 
     def __lt__(self, other: object) -> bool:
@@ -283,21 +283,21 @@ class Annotation(ObjectWithPos):
         post_context Text captured just after the end of 'text'
     """
 
-    contents: typing.Optional[str]
-    boxes: typing.List[Box]
-    text: typing.List[str]
-    pre_context: typing.Optional[str]
-    post_context: typing.Optional[str]
+    contents: typ.Optional[str]
+    boxes: typ.List[Box]
+    text: typ.List[str]
+    pre_context: typ.Optional[str]
+    post_context: typ.Optional[str]
 
     def __init__(
             self,
             page: Page,
             subtype: AnnotationType,
-            quadpoints: typing.Optional[typing.Sequence[float]] = None,
-            rect: typing.Optional[BoxCoords] = None,
-            contents: typing.Optional[str] = None,
-            author: typing.Optional[str] = None,
-            created: typing.Optional[datetime.datetime] = None):
+            quadpoints: typ.Optional[typ.Sequence[float]] = None,
+            rect: typ.Optional[BoxCoords] = None,
+            contents: typ.Optional[str] = None,
+            author: typ.Optional[str] = None,
+            created: typ.Optional[datetime.datetime] = None):
 
         # Construct boxes from quadpoints
         boxes = []
@@ -342,7 +342,7 @@ class Annotation(ObjectWithPos):
             assert charseq > self.last_charseq
             self.last_charseq = charseq
 
-    def gettext(self, remove_hyphens: bool = False) -> typing.Optional[str]:
+    def gettext(self, remove_hyphens: bool = False) -> typ.Optional[str]:
         """Retrieve cleaned-up text, after rendering."""
         if self.boxes:
             if self.text:
@@ -380,13 +380,13 @@ class Annotation(ObjectWithPos):
         """Returns true if this annotation captured context."""
         return self.pre_context is not None or self.post_context is not None
 
-    def get_context(self, remove_hyphens: bool = False) -> typing.Tuple[str, str]:
+    def get_context(self, remove_hyphens: bool = False) -> typ.Tuple[str, str]:
         """Returns context captured for this annotation, as a tuple (pre, post)."""
         return (merge_lines(self.pre_context or '', remove_hyphens, strip_space=False),
                 merge_lines(self.post_context or '', remove_hyphens, strip_space=False))
 
 
-UnresolvedPage = typing.Union[int, PDFObjRef]
+UnresolvedPage = typ.Union[int, PDFObjRef]
 """A reference to a page that is *either* a page number, or a PDF object ID."""
 
 
@@ -406,7 +406,7 @@ class Outline(ObjectWithPos):
         self,
         title: str,
         pageref: UnresolvedPage,
-        target: typing.Optional[typing.Tuple[float, float]]
+        target: typ.Optional[typ.Tuple[float, float]]
     ):
         super().__init__()
         self.title = title
@@ -443,12 +443,12 @@ class Document:
         pages   An ordered list of Page objects, indexed by zero-based page number.
     """
 
-    pages: typing.List[Page]
+    pages: typ.List[Page]
 
     def __init__(self) -> None:
         self.pages = []
 
-    def iter_annots(self) -> typing.Iterator[Annotation]:
+    def iter_annots(self) -> typ.Iterator[Annotation]:
         """Iterate over all the annotations in the document."""
         for p in self.pages:
             yield from p.annots
@@ -456,7 +456,7 @@ class Document:
     def nearest_outline(
         self,
         pos: Pos
-    ) -> typing.Optional[Outline]:
+    ) -> typ.Optional[Outline]:
         """Return the first outline occuring prior to the given position, in reading order."""
 
         # Search pages backwards from the given pos
