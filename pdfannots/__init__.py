@@ -132,7 +132,7 @@ def _get_outlines(doc: PDFDocument) -> typ.Iterator[Outline]:
                     target = None
                 else:
                     target = (targetx, targety)
-                    if not all(lambda v: isinstance(v, (int, float)) for v in target):
+                    if not all(isinstance(v, (int, float)) for v in target):
                         logger.warning("Unsupported target in outline: (%r, %r)", targetx, targety)
                         target = None
 
