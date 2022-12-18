@@ -8,19 +8,19 @@ class Main():
     def __init__(self):
         self.window = Tk()
         self.window.geometry("600x600")        
-        self.button1 = Button(self.window, text='Upload', command=self.eventUpload)
+        self.button1 = Button(self.window, text='Upload PDF File', command=self.eventUpload)
         self.button2 = Button(self.window, text='Quit', command=self.eventQuit)
         self.button3 = Button(self.window, text='Save Output', command=self.eventSaveOutput)
         self.v = Scrollbar(self.window, orient='vertical')                     
         self.textArea = Text(self.window, yscrollcommand=self.v.set)        
-        self.text = Label(self.window, text="PDF File:")
+        # self.text = Label(self.window, text="PDF File:")
 
     def show(self):
         self.v.pack(side=RIGHT, fill='y')   
-        self.text.pack(pady=10, side= TOP, anchor="w")
-        self.button1.pack()
-        self.button2.pack()
+        # self.text.pack(pady=10, side= TOP, anchor="w")
+        self.button1.pack()        
         self.button3.pack()
+        self.button2.pack()
         self.v.config(command=self.textArea.yview)
         self.textArea.pack()
         self.window.mainloop()
@@ -32,9 +32,12 @@ class Main():
         folder_selected = filedialog.askdirectory()                
         if (len(folder_selected) > 0):
             output_file = folder_selected + '/export.md'        
-            with open(output_file, 'w') as f:
-                f.write(self.textArea.get("1.0","end-1c"))
-            messagebox.showinfo("pdfannots", "Sucess")
+            if (len(self.textArea.get("1.0","end-1c"))>0):
+                with open(output_file, 'w') as f:
+                    f.write(self.textArea.get("1.0","end-1c"))
+                messagebox.showinfo("pdfannots", "Sucess")
+            else:
+                messagebox.showwarning("pdfannots", "Choose a PDF File")
         else:
             messagebox.showwarning("pdfannots", "Choose a folder")
 
