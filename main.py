@@ -12,17 +12,15 @@ class Main():
         self.button2 = Button(self.window, text='Quit', command=self.eventQuit)
         self.button3 = Button(self.window, text='Save Output', command=self.eventSaveOutput)
         self.v = Scrollbar(self.window, orient='vertical')                     
-        self.textArea = Text(self.window, yscrollcommand=self.v.set)        
-        # self.text = Label(self.window, text="PDF File:")
+        self.textArea = Text(self.window, yscrollcommand=self.v.set)                
 
     def show(self):
-        self.v.pack(side=RIGHT, fill='y')   
-        # self.text.pack(pady=10, side= TOP, anchor="w")
-        self.button1.pack()        
-        self.button3.pack()
-        self.button2.pack()
         self.v.config(command=self.textArea.yview)
-        self.textArea.pack()
+        self.v.pack(side=RIGHT, fill='y')   
+        self.button1.pack()         
+        self.button3.pack() 
+        self.button2.pack()         
+        self.textArea.pack() 
         self.window.mainloop()
 
     def eventQuit(self):
