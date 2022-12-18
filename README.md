@@ -36,6 +36,14 @@ identify to which section in the document the annotation refers.
 
 ### Usage
 
+## Graphical User Interface
+
+```python
+python main.py
+```
+
+## Command Line
+
 See `pdfannots --help` (in a source tree: `pdfannots.py --help`) for
 options and invocation.
 
