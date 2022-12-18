@@ -7,7 +7,7 @@ from tkinter import ttk
 class Main():
     def __init__(self):
         self.window = Tk()
-        self.window.geometry("600x600")        
+        self.window.geometry("600x600")  
         self.button1 = Button(self.window, text='Upload PDF File', command=self.eventUpload)
         self.button2 = Button(self.window, text='Quit', command=self.eventQuit)
         self.button3 = Button(self.window, text='Save Output', command=self.eventSaveOutput)
@@ -35,15 +35,17 @@ class Main():
                     f.write(self.textArea.get("1.0","end-1c"))
                 messagebox.showinfo("pdfannots", "Sucess")
             else:
-                messagebox.showwarning("pdfannots", "Choose a PDF File")
-        else:
-            messagebox.showwarning("pdfannots", "Choose a folder")
+                messagebox.showwarning("pdfannots", "Without Output. Please, upload a pdf file")
+        # else:
+        #     messagebox.showwarning("pdfannots", "Choose a folder")
 
     def eventUpload(self):
         filename = filedialog.askopenfilename()        
+        print(filename)
         if (len(filename) > 0):
             extension = filename.split('.', 1)        
             if(extension[1] == 'pdf'):
+                self.textArea.delete('1.0', END)
                 messagebox.showinfo("pdfannots", "Wait....")
                 os.system("python pdfannots.py "+filename+" > export.md")
                 messagebox.showinfo("pdfannots", "Sucess (export.md)")
@@ -54,8 +56,8 @@ class Main():
                     os.remove("export.md")
             else:
                 messagebox.showwarning("pdfannots", "Choose a PDF file")
-        else:
-            messagebox.showwarning("pdfannots", "Choose a file")
+        # else:
+        #     messagebox.showwarning("pdfannots", "Choose a file")
 
 if __name__ == '__main__':
     window = Main()
