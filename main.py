@@ -34,22 +34,25 @@ class Main():
             output_file = folder_selected + '/export.md'        
             with open(output_file, 'w') as f:
                 f.write(self.textArea.get("1.0","end-1c"))
-            messagebox.showinfo("pdfannots", "Sucess (export.md)")
+            messagebox.showinfo("pdfannots", "Sucess")
         else:
             messagebox.showwarning("pdfannots", "Choose a folder")
 
     def eventUpload(self):
-        filename = filedialog.askopenfilename()
-        extension = filename.split('.', 1)
-        if (len(filename) > 0 and extension[1] == 'pdf'):
-            messagebox.showinfo("pdfannots", "Wait....")
-            os.system("python pdfannots.py "+filename+" > export.md")
-            messagebox.showinfo("pdfannots", "Sucess (export.md)")
-            f = open("export.md", "r")
-            for line in f:
-                self.textArea.insert(END, line)
-            if os.path.exists("export.md"):
-                os.remove("export.md")
+        filename = filedialog.askopenfilename()        
+        if (len(filename) > 0):
+            extension = filename.split('.', 1)        
+            if(extension[1] == 'pdf'):
+                messagebox.showinfo("pdfannots", "Wait....")
+                os.system("python pdfannots.py "+filename+" > export.md")
+                messagebox.showinfo("pdfannots", "Sucess (export.md)")
+                f = open("export.md", "r")
+                for line in f:
+                    self.textArea.insert(END, line)
+                if os.path.exists("export.md"):
+                    os.remove("export.md")
+            else:
+                messagebox.showwarning("pdfannots", "Choose a PDF file")
         else:
             messagebox.showwarning("pdfannots", "Choose a file")
 
