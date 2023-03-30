@@ -385,7 +385,7 @@ class Annotation(ObjectWithPos):
         return (merge_lines(self.pre_context or '', remove_hyphens, strip_space=False),
                 merge_lines(self.post_context or '', remove_hyphens, strip_space=False))
 
-    def postprocess(self):
+    def postprocess(self) -> None:
         """Update internal state once all text and context has been captured."""
         # The Skim PDF reader (https://skim-app.sourceforge.io/) creates annotations whose
         # default initial contents are a copy of the selected text. Unless the user goes to
