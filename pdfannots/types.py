@@ -385,6 +385,14 @@ class Annotation(ObjectWithPos):
         return (merge_lines(self.pre_context or '', remove_hyphens, strip_space=False),
                 merge_lines(self.post_context or '', remove_hyphens, strip_space=False))
 
+    def postprocess(self):
+        """Update internal state once all text and context has been captured."""
+        # The Skim PDF reader (https://skim-app.sourceforge.io/) creates annotations whose
+        # default initial contents are a copy of the selected text. Unless the user goes to
+        # the trouble of editing each annotation, this goes badly for us because we have
+        # duplicate text and contents (e.g., for simple highlights and strikeout).
+        if self.contents and self.text and ''.join(self.text).strip() == self.contents.strip():
+            self.contents = None
 
 UnresolvedPage = typ.Union[int, PDFObjRef]
 """A reference to a page that is *either* a page number, or a PDF object ID."""

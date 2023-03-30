@@ -406,6 +406,10 @@ def process_file(
         page.annots.sort()
         page.outlines.sort()
 
+        # Give the annotations a chance to update their internals
+        for a in page.annots:
+            a.postprocess()
+
     emit_progress("\n")
 
     device.close()
