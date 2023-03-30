@@ -384,9 +384,11 @@ def process_file(
         # Construct Annotation objects, and append them to the page.
         for pa in pdftypes.resolve1(pdfpage.annots) if pdfpage.annots else []:
             if isinstance(pa, pdftypes.PDFObjRef):
-                annot = _mkannotation(pdftypes.dict_value(pa), page)
-                if annot is not None:
-                    page.annots.append(annot)
+                annot_dict = pdftypes.dict_value(pa)
+                if annot_dict:  # Would be empty if pa is a broken ref
+                    annot = _mkannotation(annot_dict, page)
+                    if annot is not None:
+                        page.annots.append(annot)
             else:
                 logger.warning("Unknown annotation: %s", pa)
 
@@ -403,6 +405,10 @@ def process_file(
         # Now we have their logical order, sort the annotations and outlines.
         page.annots.sort()
         page.outlines.sort()
+
+        # Give the annotations a chance to update their internals
+        for a in page.annots:
+            a.postprocess()
 
     emit_progress("\n")
 
