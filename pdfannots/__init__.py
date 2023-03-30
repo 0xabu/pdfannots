@@ -384,9 +384,11 @@ def process_file(
         # Construct Annotation objects, and append them to the page.
         for pa in pdftypes.resolve1(pdfpage.annots) if pdfpage.annots else []:
             if isinstance(pa, pdftypes.PDFObjRef):
-                annot = _mkannotation(pdftypes.dict_value(pa), page)
-                if annot is not None:
-                    page.annots.append(annot)
+                annot_dict = pdftypes.dict_value(pa)
+                if annot_dict:  # Would be empty if pa is a broken ref
+                    annot = _mkannotation(annot_dict, page)
+                    if annot is not None:
+                        page.annots.append(annot)
             else:
                 logger.warning("Unknown annotation: %s", pa)
 
