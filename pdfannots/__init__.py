@@ -101,6 +101,8 @@ def _get_outlines(doc: PDFDocument) -> typ.Iterator[Outline]:
     """Retrieve a list of (unresolved) Outline objects for all recognised outlines in the PDF."""
 
     def _resolve_dest(dest: typ.Any) -> typ.Any:
+        if isinstance(dest, pdftypes.PDFObjRef):
+            dest = pdftypes.resolve1(dest)
         if isinstance(dest, bytes):
             dest = pdftypes.resolve1(doc.get_dest(dest))
         elif isinstance(dest, PSLiteral):
