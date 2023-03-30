@@ -199,7 +199,7 @@ class MarkdownPrinter(Printer):
         if post:
             post = trim_context(post, keep_right=False)
 
-        return pre + '<del>' + text + '</del>' + post
+        return pre + '~~' + text + '~~' + post
 
     def format_annot(
         self,
