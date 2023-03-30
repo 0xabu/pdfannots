@@ -394,6 +394,7 @@ class Annotation(ObjectWithPos):
         if self.contents and self.text and ''.join(self.text).strip() == self.contents.strip():
             self.contents = None
 
+
 UnresolvedPage = typ.Union[int, PDFObjRef]
 """A reference to a page that is *either* a page number, or a PDF object ID."""
 
