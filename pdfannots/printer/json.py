@@ -35,6 +35,9 @@ def annot_to_dict(
     if annot.created:
         result['created'] = annot.created.strftime('%Y-%m-%dT%H:%M:%S')
 
+    if annot.boxes:
+        result['boxes'] = [{"x0": b.x0, "x1": b.x1, "y0":b.y0, "y1":b.y1} for b in annot.boxes]
+
     return result
 
 
