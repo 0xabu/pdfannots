@@ -9,6 +9,7 @@ from . import __doc__, __version__, process_file
 from .printer import Printer
 from .printer.markdown import MarkdownPrinter, GroupedMarkdownPrinter
 from .printer.json import JsonPrinter
+from .printer.edn import EDNPrinter
 
 
 MD_FORMAT_ARGS = ['print_filename', 'remove_hyphens', 'wrap_column', 'condense', 'sections']
@@ -38,12 +39,14 @@ def parse_args() -> typ.Tuple[argparse.Namespace, LAParams]:
                    help="Emit progress information to stderr.")
     g.add_argument("-o", metavar="OUTFILE", type=argparse.FileType("w", encoding="utf-8"),
                    dest="output", default=sys.stdout, help="Output file (default is stdout).")
+    g.add_argument("--edn_output", metavar="EDNOUTFILE", type=argparse.FileType("w", encoding="utf-8"),
+                   dest="edn_output", default=sys.stdout, help="if format is edn, the edn output will be added to this file")
     g.add_argument("-n", "--cols", default=None, type=int, metavar="COLS", dest="cols",
                    help="Assume a fixed top-to-bottom left-to-right page layout with this many "
                         "columns per page. If unset, PDFMiner's layout detection logic is used.")
     g.add_argument("--keep-hyphens", dest="remove_hyphens", default=True, action="store_false",
                    help="When capturing text across a line break, don't attempt to remove hyphens.")
-    g.add_argument("-f", "--format", choices=["md", "json"], default="md",
+    g.add_argument("-f", "--format", choices=["md", "json", "md_and_edn"], default="md",
                    help="Output format (default: markdown).")
 
     g = p.add_argument_group('Options controlling markdown output')
@@ -129,6 +132,8 @@ def main() -> None:
         printer = (GroupedMarkdownPrinter if args.group else MarkdownPrinter)(**mdargs)
     elif args.format == "json":
         printer = JsonPrinter(remove_hyphens=args.remove_hyphens)
+    elif args.format == "md_and_edn":
+        printer = EDNPrinter(remove_hyphens=args.remove_hyphens)
 
     def write_if_nonempty(s: str) -> None:
         if s:
@@ -143,7 +148,12 @@ def main() -> None:
             columns_per_page=args.cols,
             emit_progress_to=(sys.stderr if args.progress else None),
             laparams=laparams)
-        for line in printer.print_file(file.name, doc):
-            args.output.write(line)
+        if args.format != "md_and_edn":
+            for line in printer.print_file(file.name, doc):
+                args.output.write(line)
+        else:
+            out = printer.print_file(file.name, doc)
+            args.output.write(out["markdown_part"])
+            args.edn_output.write(out["edn_part"])
 
     write_if_nonempty(printer.end())

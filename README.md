@@ -4,8 +4,8 @@
 [![PyPI version](https://img.shields.io/pypi/v/pdfannots)](https://pypi.org/project/pdfannots/)
 
 This program extracts annotations (highlights, comments, etc.) from a PDF file,
-and formats them as Markdown or exports them to JSON. It is primarily intended
-for use in reviewing submissions to scientific conferences/journals.
+and formats them either as Markdown, as JSON, or as Markdown coupled with EDN files (for example for use with [LogSeq](https://github.com/logseq/logseq/issues)).
+It is primarily intended for use in reviewing submissions to scientific conferences/journals.
 
 ![Sample/demo of pdfannots extracting Markdown from an annotated PDF](doc/demo.png)
 
