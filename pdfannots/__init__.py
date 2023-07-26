@@ -94,7 +94,7 @@ def _mkannotation(
         created = decode_datetime(createds)
 
     return Annotation(page, annot_type, quadpoints, rect,
-                      contents, author=author, created=created)
+                      contents, color=pa.get('C'), author=author, created=created)
 
 
 def _get_outlines(doc: PDFDocument) -> typ.Iterator[Outline]:

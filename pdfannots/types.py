@@ -10,6 +10,10 @@ import typing as typ
 from pdfminer.layout import LTComponent, LTText
 from pdfminer.pdftypes import PDFObjRef
 
+from colormath.color_objects import sRGBColor, LabColor
+from colormath.color_conversions import convert_color
+from colormath.color_diff import delta_e_cie2000
+
 from .utils import merge_lines
 
 logger = logging.getLogger('pdfannots')
@@ -19,6 +23,18 @@ Point = typ.Tuple[float, float]
 
 BoxCoords = typ.Tuple[float, float, float, float]
 """The coordinates of a bounding box (x0, y0, x1, y1)."""
+
+# A first attempt to define generic colors with Delta-E distances below 49
+# compared againt both Preview.App's and DEVONthink ToGo's PDF default highlight colors.
+# http://colormine.org/delta-e-calculator
+# http://zschuessler.github.io/DeltaE/learn/
+COLORS = {
+    'blue'   : sRGBColor(0.294117647059, 0.588235294118, 1.0           ),
+    'yellow' : sRGBColor(1.0           , 0.78431372549 , 0.196078431373),
+    'green'  : sRGBColor(0.78431372549 , 1             , 0.392156862745),
+    'lilac'  : sRGBColor(0.78431372549 , 0.392156862745, 0.78431372549 ),
+    'rose'   : sRGBColor(1.0           , 0.196078431373, 0.392156862745)
+}
 
 
 class Box:
@@ -299,6 +315,7 @@ class Annotation(ObjectWithPos):
             quadpoints: typ.Optional[typ.Sequence[float]] = None,
             rect: typ.Optional[BoxCoords] = None,
             contents: typ.Optional[str] = None,
+            color: typ.Optional[str] = None,
             author: typ.Optional[str] = None,
             created: typ.Optional[datetime.datetime] = None):
 
@@ -318,8 +335,19 @@ class Annotation(ObjectWithPos):
         assert rect or boxes
         (x0, y0, x1, y1) = rect if rect else boxes[0].get_coords()
         # XXX: assume left-to-right top-to-bottom text
+#        if subtype == AnnotationType.Ink:
+#            breakpoint()
         pos = Pos(page, min(x0, x1), max(y0, y1))
         super().__init__(pos)
+
+        if color == '':
+            self.color = None
+        else:
+            self.colorname = self.getColorName(color)
+        if rect is not None:
+            self.rect = rect
+        else:
+            self.rect = None
 
         # Initialise the attributes
         self.subtype = subtype
@@ -397,6 +425,28 @@ class Annotation(ObjectWithPos):
         # duplicate text and contents (e.g., for simple highlights and strikeout).
         if self.contents and self.text and ''.join(self.text).strip() == self.contents.strip():
             self.contents = None
+
+    def getColorName(self, color):
+        """
+        Determine neartest color based on Delta-E difference between input and reference colors.
+        Create sRGBColor object from input
+        """
+        try:
+            annotationcolor = sRGBColor(color[0], color[1], color[2])
+        except TypeError:
+            # In case something goes wrong, return green
+            return 'green'
+
+        deltae = {}
+
+        # Iterate over reference colors and calculate Delta-E for each one.
+        # deltae will contain a dictionary in the form of 'colorname': <float> deltae.
+        for colorname, referencecolor in COLORS.items():
+            deltae[colorname] = delta_e_cie2000(convert_color(referencecolor, LabColor), convert_color(annotationcolor, LabColor))
+
+        # return first key from dictionary sorted asc by value
+        likelycolor = sorted(deltae, key=deltae.get)[0]
+        return likelycolor
 
 
 UnresolvedPage = typ.Union[int, PDFObjRef]

@@ -56,7 +56,7 @@ def annot_to_dict(
                 "text": annot.gettext(remove_hyphens)
                 }
 
-    result["properties"] = {"color": "yellow"}
+    result["properties"] = {"color": annot.colorname}
 
     return result
 
@@ -98,7 +98,7 @@ class EDNPrinter(Printer):
             md += "- " + an["content"]["text"] + "\n"
             md += "  ls-type:: annotation\n"
             md += "  hl-page:: " + str(an["page"]) + "\n"
-            md += "  hl-color:: yellow\n"
+            md += "  hl-color:: " + str(an["properties"]["color"]) + "\n"
             md += "  id:: " + an["id #uuid"] + "\n"
 
 
