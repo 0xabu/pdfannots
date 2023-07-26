@@ -20,11 +20,12 @@ def annot_to_dict(
         "page": annot.pos.page.pageno + 1,
     }
 
+
     if annot.boxes:
-        bd_x1 = min([b.x0 for b in annot.boxes])
-        bd_y1 = min([b.y0 for b in annot.boxes])
-        bd_x2 = max([b.x1 for b in annot.boxes])
-        bd_y2 = max([b.y1 for b in annot.boxes])
+        bd_x1 = annot.rect[0]
+        bd_y1 = annot.rect[2]
+        bd_x2 = annot.rect[1]
+        bd_y2 = annot.rect[3]
         bd_w = int(bd_x2 - bd_x1)
         bd_h = int(bd_y2 - bd_y1)
         result['position'] = {
