@@ -29,11 +29,11 @@ BoxCoords = typ.Tuple[float, float, float, float]
 # http://colormine.org/delta-e-calculator
 # http://zschuessler.github.io/DeltaE/learn/
 COLORS = {
-    'blue'   : sRGBColor(0.294117647059, 0.588235294118, 1.0           ),
     'yellow' : sRGBColor(1.0           , 0.78431372549 , 0.196078431373),
+    'red'    : sRGBColor(1.0           , 0.0,            0.0),
     'green'  : sRGBColor(0.78431372549 , 1             , 0.392156862745),
-    'lilac'  : sRGBColor(0.78431372549 , 0.392156862745, 0.78431372549 ),
-    'rose'   : sRGBColor(1.0           , 0.196078431373, 0.392156862745)
+    'blue'   : sRGBColor(0.294117647059, 0.588235294118, 1.0),
+    'purple'  : sRGBColor(0.78431372549 , 0.392156862745, 0.78431372549 ),
 }
 
 
