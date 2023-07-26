@@ -39,8 +39,8 @@ def annot_to_dict(
             "rects": [
                 {
                     "x1": b.x0,
-                    "x2": b.x1,
                     "y1": b.y0,
+                    "x2": b.x1,
                     "y2": b.y1,
                     "width": b.get_width(),
                     "height": b.get_height(),
