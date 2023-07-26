@@ -265,6 +265,9 @@ class AnnotationType(enum.Enum):
     # Free-form text written somewhere on the page.
     FreeText = enum.auto()
 
+    # Free hand drawing
+    Ink = enum.auto()
+
 
 class Annotation(ObjectWithPos):
     """
@@ -327,6 +330,7 @@ class Annotation(ObjectWithPos):
         self.pre_context = None
         self.post_context = None
         self.boxes = boxes
+        self.rect = rect
         self.last_charseq = 0
 
     def __repr__(self) -> str:
