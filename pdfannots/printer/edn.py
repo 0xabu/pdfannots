@@ -4,7 +4,7 @@ import json
 import typing as typ
 
 from . import Printer
-from ..types import Annotation, Document
+from ..types import Annotation, Document, AnnotationType
 
 
 def annot_to_dict(
@@ -51,10 +51,17 @@ def annot_to_dict(
         }
 
 
-    if annot.text:
-        result['content'] = {
-                "text": annot.gettext(remove_hyphens)
+    if annot.subtype in [AnnotationType.Square, AnnotationType.Ink]:
+        result["content"] = {
+                "text": "[:span]",
+                "image": "TODO",  # TODO, render an image here and store it
+                # with as name the UNIX timestamp
                 }
+    else:
+        if annot.text:
+            result['content'] = {
+                    "text": annot.gettext(remove_hyphens)
+                    }
 
     result["properties"] = {"color": annot.colorname}
 
@@ -106,7 +113,7 @@ class EDNPrinter(Printer):
 
         for var in ["x1", "y1", "x2", "y2", "width", "height", "id #uuid",
                 "page", "position", "content", "text", "properties",
-                "color", "rects", "bounding", "highlights"]:
+                "color", "rects", "bounding", "highlights", "image"]:
             edn = edn_var_formatter(edn, var)
 
         return {
