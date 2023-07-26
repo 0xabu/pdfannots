@@ -335,8 +335,6 @@ class Annotation(ObjectWithPos):
         assert rect or boxes
         (x0, y0, x1, y1) = rect if rect else boxes[0].get_coords()
         # XXX: assume left-to-right top-to-bottom text
-#        if subtype == AnnotationType.Ink:
-#            breakpoint()
         pos = Pos(page, min(x0, x1), max(y0, y1))
         super().__init__(pos)
 
