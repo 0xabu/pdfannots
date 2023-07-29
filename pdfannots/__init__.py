@@ -71,6 +71,19 @@ def _mkannotation(
         # decode as string, normalise line endings, replace special characters
         contents = cleanup_text(pdfminer.utils.decode_text(contents))
 
+    color = pa.get('C')
+    hex_color = ""
+    if color is not None:
+        # color is an array of 3 floats in the range 0.0 to 1.0
+        if len(color) != 3:
+            logger.warning("Unsupported color format in annotation on %s", page)
+        else:
+            color = tuple(color)
+            red_hex = format(int(color[0] * 255), '02x')
+            green_hex = format(int(color[1] * 255), '02x')
+            blue_hex = format(int(color[2] * 255), '02x')
+            hex_color = f"#{red_hex}{green_hex}{blue_hex}"
+
     # Rect defines the location of the annotation on the page
     rect = pdftypes.resolve1(pa.get('Rect'))
 
@@ -94,7 +107,7 @@ def _mkannotation(
         created = decode_datetime(createds)
 
     return Annotation(page, annot_type, quadpoints, rect,
-                      contents, author=author, created=created)
+                      contents, author=author, created=created, color=hex_color)
 
 
 def _get_outlines(doc: PDFDocument) -> typ.Iterator[Outline]:

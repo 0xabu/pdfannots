@@ -296,6 +296,7 @@ class Annotation(ObjectWithPos):
             quadpoints: typ.Optional[typ.Sequence[float]] = None,
             rect: typ.Optional[BoxCoords] = None,
             contents: typ.Optional[str] = None,
+            color: typ.Optional[str] = None,
             author: typ.Optional[str] = None,
             created: typ.Optional[datetime.datetime] = None):
 
@@ -324,6 +325,7 @@ class Annotation(ObjectWithPos):
         self.author = author
         self.created = created
         self.text = []
+        self.color = color
         self.pre_context = None
         self.post_context = None
         self.boxes = boxes
