@@ -297,7 +297,8 @@ class Annotation(ObjectWithPos):
             rect: typ.Optional[BoxCoords] = None,
             contents: typ.Optional[str] = None,
             author: typ.Optional[str] = None,
-            created: typ.Optional[datetime.datetime] = None):
+            created: typ.Optional[datetime.datetime] = None,
+            color: typ.Optional[RGB] = None): # RGB color expressed as a 3-tuple of floats in [0, 1]
 
         # Construct boxes from quadpoints
         boxes = []
@@ -324,6 +325,7 @@ class Annotation(ObjectWithPos):
         self.author = author
         self.created = created
         self.text = []
+        self.color = color
         self.pre_context = None
         self.post_context = None
         self.boxes = boxes
@@ -479,3 +481,15 @@ class Document:
                 return page.outlines[idx - 1]
 
         return None
+
+
+class RGB(typ.NamedTuple):
+    red: float
+    green: float
+    blue: float
+
+    def ashex(self) -> str:
+        red_hex = format(int(self.red * 255), '02x')
+        green_hex = format(int(self.green * 255), '02x')
+        blue_hex = format(int(self.blue * 255), '02x')
+        return f"#{str(red_hex)}{str(green_hex)}{(blue_hex)}"
