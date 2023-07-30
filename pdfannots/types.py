@@ -276,6 +276,7 @@ class Annotation(ObjectWithPos):
         text         Text in the order captured (use gettext() for a cleaner form)
         author       Author of the annotation
         created      Timestamp the annotation was created
+        color        RGB color of the annotation
         last_charseq Sequence number of the most recent character in text
 
     Attributes updated only for StrikeOut annotations:
@@ -298,7 +299,7 @@ class Annotation(ObjectWithPos):
             contents: typ.Optional[str] = None,
             author: typ.Optional[str] = None,
             created: typ.Optional[datetime.datetime] = None,
-            color: typ.Optional[RGB] = None): # RGB color expressed as a 3-tuple of floats in [0, 1]
+            color: typ.Optional[RGB] = None): 
 
         # Construct boxes from quadpoints
         boxes = []

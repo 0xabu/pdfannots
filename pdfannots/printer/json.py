@@ -36,10 +36,7 @@ def annot_to_dict(
         result['created'] = annot.created.strftime('%Y-%m-%dT%H:%M:%S')
 
     if annot.color:
-        try:
-            result['color'] = annot.color.ashex()
-        except:
-            pass
+        result['color'] = annot.color.ashex()
 
     return result
 
