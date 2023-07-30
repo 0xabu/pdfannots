@@ -76,7 +76,7 @@ def _mkannotation(
     if color is not None:
         if (isinstance(color, list)
                 and len(color) == 3
-                and all(isinstance(e, float) and 0 <= e <= 1 for e in color)):
+                and all(isinstance(e, (int, float)) and 0 <= e <= 1 for e in color)):
             rgb = RGB(*color)
         else:
             logger.warning("Invalid color %s in annotation on %s", color, page)
