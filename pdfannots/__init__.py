@@ -22,7 +22,7 @@ from pdfminer import pdftypes
 import pdfminer.settings
 import pdfminer.utils
 
-from .types import Page, Outline, AnnotationType, Annotation, Document
+from .types import Page, Outline, AnnotationType, Annotation, Document, RGB
 from .utils import cleanup_text, decode_datetime
 
 pdfminer.settings.STRICT = False
@@ -71,6 +71,16 @@ def _mkannotation(
         # decode as string, normalise line endings, replace special characters
         contents = cleanup_text(pdfminer.utils.decode_text(contents))
 
+    rgb: typ.Optional[RGB] = None
+    color = pa.get('C')
+    if color is not None:
+        if (isinstance(color, list)
+                and len(color) == 3
+                and all(isinstance(e, float) and 0 <= e <= 1 for e in color)):
+            rgb = RGB(*color)
+        else:
+            logger.warning("Invalid color %s in annotation on %s", color, page)
+
     # Rect defines the location of the annotation on the page
     rect = pdftypes.resolve1(pa.get('Rect'))
 
@@ -94,7 +104,7 @@ def _mkannotation(
         created = decode_datetime(createds)
 
     return Annotation(page, annot_type, quadpoints, rect,
-                      contents, author=author, created=created)
+                      contents, author=author, created=created, color=rgb)
 
 
 def _get_outlines(doc: PDFDocument) -> typ.Iterator[Outline]:
