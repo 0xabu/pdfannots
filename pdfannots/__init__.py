@@ -71,16 +71,15 @@ def _mkannotation(
         # decode as string, normalise line endings, replace special characters
         contents = cleanup_text(pdfminer.utils.decode_text(contents))
 
+    rgb: typ.Optional[RGB] = None
     color = pa.get('C')
     if color is not None:
-        if not (isinstance(color, list) and len(color) == 3 and all(isinstance(e, float) for e in color)):
+        if isinstance(color, list)
+                and len(color) == 3
+                and all(isinstance(e, float) and 0 <= e <= 1 for e in color):
             rgb = RGB(*color)
         else:
             logger.warning("Invalid color %s in annotation on %s", color, page)
-            rgb = None
-    else:
-        # Handle the case when 'C' attribute is None (no color information available)
-        rgb = None
 
     # Rect defines the location of the annotation on the page
     rect = pdftypes.resolve1(pa.get('Rect'))

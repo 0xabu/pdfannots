@@ -299,7 +299,7 @@ class Annotation(ObjectWithPos):
             contents: typ.Optional[str] = None,
             author: typ.Optional[str] = None,
             created: typ.Optional[datetime.datetime] = None,
-            color: typ.Optional[RGB] = None): 
+            color: typ.Optional[RGB] = None):
 
         # Construct boxes from quadpoints
         boxes = []
