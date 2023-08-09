@@ -290,6 +290,18 @@ class MarkdownPrinterTest(PrinterTestBase):
         self.assertGreater(linecount, 10)
         self.assertGreater(charcount, 900)
 
+    def test_multicolorgrouping(self) -> None:
+        p = GroupedMarkdownPrinter(group_highlights_by_color=True)
+
+        linecount = 0
+        charcount = 0
+        for line in p.print_file('dummyfile', self.doc):
+            linecount += line.count('\n')
+            charcount += len(line)
+
+        self.assertGreater(linecount, 10)
+        self.assertGreater(charcount, 900)
+
 
 class JsonPrinterTest(PrinterTestBase):
     def test_flat(self) -> None:
