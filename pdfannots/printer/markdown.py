@@ -308,7 +308,8 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
         # Partition annotations into nits, comments, and highlights.
         nits = []
         comments = []
-        highlights = {} if self.group_highlights_by_color else []
+        highlights_by_color: typ.Dict[str, typ.List[Annotation]] = {}
+        highlights = []
         for a in document.iter_annots():
             if a.subtype in self.ANNOT_NITS:
                 nits.append(a)
@@ -316,22 +317,27 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
                 comments.append(a)
             elif a.subtype == AnnotationType.Highlight:
                 if self.group_highlights_by_color:
-                    color = a.color.ashex()
-                    if color not in highlights:
-                        highlights[color] = []
-                    highlights[color].append(a)
+                    if a.color:
+                        color = str(a.color.ashex())
+                    else:
+                        color = "undefined"
+                    if color not in highlights_by_color:
+                        highlights_by_color[color] = []
+                    highlights_by_color[color].append(a)
                 else:
                     highlights.append(a)
 
         for secname in self.sections:
-            if highlights and secname == 'highlights':
+            if self.group_highlights_by_color and (
+                    highlights_by_color and secname == 'highlights'
+                ):
                 yield fmt_header("Highlights")
-                if self.group_highlights_by_color:
-                    for color, annots in highlights.items():
-                        yield fmt_header(f"Color: {color}", level=3)
-                        for a in annots:
-                            yield self.format_annot(a, document)
-                else:
+                for color, annots in highlights_by_color.items():
+                    yield fmt_header(f"Color: {color}", level=3)
+                    for a in annots:
+                        yield self.format_annot(a, document)
+            else:
+                if highlights and secname == 'highlights':
                     for a in highlights:
                         yield self.format_annot(a, document)
 
