@@ -15,7 +15,10 @@ def annot_to_dict(
 
     result = {
         "type": annot.subtype.name,
-        "page": annot.pos.page.pageno + 1,
+        "page": {
+            "number": annot.pos.page.pageno + 1,
+            "label": annot.pos.page.label,
+        },
         "start_xy": (annot.pos.x, annot.pos.y),
     }
 
