@@ -14,7 +14,7 @@ from .printer.json import JsonPrinter
 MD_FORMAT_ARGS = [
     'condense',
     'group',
-    'group_highlights_by_color'
+    'group_highlights_by_color',
     'print_filename',
     'sections',
     'wrap_column',
@@ -62,7 +62,7 @@ def parse_args() -> typ.Tuple[argparse.Namespace, LAParams]:
         help="Emit annotations in order, don't group into sections."
     )
     mutex_group.add_argument(
-        "-gc", "--group-highlight-by-color",
+        "--group-highlights-by-color",
         dest="group_highlights_by_color",
         default=False, action="store_true",
         help="Group highlights by color in grouped output."
