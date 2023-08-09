@@ -12,12 +12,12 @@ from .printer.json import JsonPrinter
 
 
 MD_FORMAT_ARGS = [
-    'sections',
     'condense',
     'group',
-    'print_filename',
-    'wrap_column',
     'group_highlights_by_color'
+    'print_filename',
+    'sections',
+    'wrap_column',
 ]
 """Names of arguments passed to the markdown printer."""
 
