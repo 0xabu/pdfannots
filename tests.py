@@ -67,6 +67,8 @@ class ExtractionTests(ExtractionTestBase):
              '"Broadwell" CPUs with the bug fix shipped in late 2014.'),
             (1, AnnotationType.Highlight, 'This is lower in column 1',
              'user-mode access to FS/GS registers, and TLB tags for non-VM address spaces'),
+            (1, AnnotationType.Highlight, None,
+             'segmentation, task switching, and 16-bit modes.'),
             (1, AnnotationType.Highlight, 'This is at the top of column two',
              'The jump is due to extensions introduced with the "Skylake" microarchitecture'),
             (3, AnnotationType.Squiggly, 'This is a nit.',
@@ -313,7 +315,7 @@ class JsonPrinterTest(PrinterTestBase):
             + p.end())
 
         self.assertTrue(isinstance(j, list))
-        self.assertEqual(len(j), 8)
+        self.assertEqual(len(j), 9)
 
 
 if __name__ == "__main__":
