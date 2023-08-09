@@ -15,28 +15,19 @@ def annot_to_dict(
 
     result = {
         "type": annot.subtype.name,
-        "page": annot.pos.page.pageno + 1,
+        "page_number" "number": annot.pos.page.pageno + 1,
+        "page_label": getattr(annot.pos.page, 'label', None),
         "start_xy": (annot.pos.x, annot.pos.y),
+        "prior_outline": getattr(doc.nearest_outline(annot.pos), 'title', None),
+        "text": annot.gettext(remove_hyphens) if annot.text else None,
+        "contents": getattr(annot, 'contents', None),
+        "author": getattr(annot, 'author', None),
+        "created": annot.created.strftime('%Y-%m-%dT%H:%M:%S') if annot.created else None,
+        "color": annot.color.ashex() if annot.color else None
     }
 
-    outline = doc.nearest_outline(annot.pos)
-    if outline:
-        result["prior_outline"] = outline.title
-
-    if annot.text:
-        result['text'] = annot.gettext(remove_hyphens)
-
-    if annot.contents:
-        result['contents'] = annot.contents
-
-    if annot.author:
-        result['author'] = annot.author
-
-    if annot.created:
-        result['created'] = annot.created.strftime('%Y-%m-%dT%H:%M:%S')
-
-    if annot.color:
-        result['color'] = annot.color.ashex()
+    # Remove keys with None values in nested dictionary
+    result = {k: v for k, v in result.items() if v is not None}
 
     return result
 
