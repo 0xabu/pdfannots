@@ -11,8 +11,15 @@ from .printer.markdown import MarkdownPrinter, GroupedMarkdownPrinter
 from .printer.json import JsonPrinter
 
 
-MD_FORMAT_ARGS = ['print_filename', 'remove_hyphens', 'wrap_column', 'condense', 'sections']
-"""Named of arguments passed to the markdown printers."""
+MD_FORMAT_ARGS = [
+    'sections',
+    'condense',
+    'group',
+    'print_filename',
+    'wrap_column',
+    'group_highlights_by_color'
+]
+"""Names of arguments passed to the markdown printer."""
 
 
 def _float_or_disabled(x: str) -> typ.Optional[float]:
@@ -47,6 +54,20 @@ def parse_args() -> typ.Tuple[argparse.Namespace, LAParams]:
                    help="Output format (default: markdown).")
 
     g = p.add_argument_group('Options controlling markdown output')
+    mutex_group = g.add_mutually_exclusive_group()
+    mutex_group.add_argument(
+        "--no-group",
+        dest="group",
+        default=True, action="store_false",
+        help="Emit annotations in order, don't group into sections."
+    )
+    mutex_group.add_argument(
+        "-gc", "--group-highlight-by-color",
+        dest="group_highlights_by_color",
+        default=False, action="store_true",
+        help="Group highlights by color in grouped output."
+    )
+
     g.add_argument("-s", "--sections", metavar="SEC", nargs="*",
                    choices=GroupedMarkdownPrinter.ALL_SECTIONS,
                    default=GroupedMarkdownPrinter.ALL_SECTIONS,
@@ -54,8 +75,6 @@ def parse_args() -> typ.Tuple[argparse.Namespace, LAParams]:
                          ', '.join(GroupedMarkdownPrinter.ALL_SECTIONS)))
     g.add_argument("--no-condense", dest="condense", default=True, action="store_false",
                    help="Emit annotations as a blockquote regardless of length.")
-    g.add_argument("--no-group", dest="group", default=True, action="store_false",
-                   help="Emit annotations in order, don't group into sections.")
     g.add_argument("--print-filename", dest="print_filename", default=False, action="store_true",
                    help="Print the name of each file with annotations.")
     g.add_argument("-w", "--wrap", dest="wrap_column", metavar="COLS", type=int,
