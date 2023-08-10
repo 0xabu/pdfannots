@@ -1,9 +1,10 @@
+from collections import defaultdict
 import logging
 import textwrap
 import typing as typ
 
 from . import Printer
-from ..types import AnnotationType, Pos, Annotation, Document
+from ..types import RGB, AnnotationType, Pos, Annotation, Document
 
 logger = logging.getLogger('pdfannots')
 
@@ -84,12 +85,12 @@ class MarkdownPrinter(Printer):
     def __init__(
         self,
         *,
-        condense: bool = True,                   # Permit use of the condensed format
-        print_filename: bool = False,            # Whether to print file names
-        group_highlights_by_color: bool = False, # Whether to group highlights by color
-        remove_hyphens: bool = True,             # Whether to remove hyphens across a line break
-        wrap_column: typ.Optional[int] = None,   # Column at which output is word-wrapped
-        **kwargs: typ.Any                        # Other args, ignored
+        condense: bool = True,                    # Permit use of the condensed format
+        print_filename: bool = False,             # Whether to print file names
+        group_highlights_by_color: bool = False,  # Whether to group highlights by color
+        remove_hyphens: bool = True,              # Whether to remove hyphens across a line break
+        wrap_column: typ.Optional[int] = None,    # Column at which output is word-wrapped
+        **kwargs: typ.Any                         # Other args, ignored
     ) -> None:
         self.print_filename = print_filename
         self.group_highlights_by_color = group_highlights_by_color
@@ -308,7 +309,12 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
         # Partition annotations into nits, comments, and highlights.
         nits = []
         comments = []
-        highlights_by_color: typ.Dict[str, typ.List[Annotation]] = {}
+        # Create a defaultdict to hold grouped highlights by color.
+        highlights_by_color: typ.DefaultDict[
+            typ.Union[RGB, str],
+            typ.List[Annotation]
+        ] = defaultdict(list)
+        # Create just a normal list for highlights when the defaultdict above is not needed
         highlights = []
         for a in document.iter_annots():
             if a.subtype in self.ANNOT_NITS:
@@ -318,19 +324,19 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
             elif a.subtype == AnnotationType.Highlight:
                 if self.group_highlights_by_color:
                     if a.color:
-                        color = str(a.color.ashex())
+                        color: typ.Union[RGB, str] = a.color
                     else:
                         color = "undefined"
-                    if color not in highlights_by_color:
-                        highlights_by_color[color] = []
                     highlights_by_color[color].append(a)
                 else:
                     highlights.append(a)
 
         for secname in self.sections:
-            if self.group_highlights_by_color and (
-                    highlights_by_color and secname == 'highlights'
-                ):
+            if (
+                self.group_highlights_by_color
+                and highlights_by_color
+                and secname == 'highlights'
+            ):
                 yield fmt_header("Highlights")
                 for color, annots in highlights_by_color.items():
                     yield fmt_header(f"Color: {color}", level=3)
