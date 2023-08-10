@@ -1,9 +1,10 @@
+from collections import defaultdict
 import logging
 import textwrap
 import typing as typ
 
 from . import Printer
-from ..types import AnnotationType, Pos, Annotation, Document
+from ..types import RGB, AnnotationType, Pos, Annotation, Document
 
 logger = logging.getLogger('pdfannots')
 
@@ -84,13 +85,15 @@ class MarkdownPrinter(Printer):
     def __init__(
         self,
         *,
-        condense: bool = True,                  # Permit use of the condensed format
-        print_filename: bool = False,           # Whether to print file names
-        remove_hyphens: bool = True,            # Whether to remove hyphens across a line break
-        wrap_column: typ.Optional[int] = None,  # Column at which output is word-wrapped
-        **kwargs: typ.Any                       # Other args, ignored
+        condense: bool = True,                    # Permit use of the condensed format
+        print_filename: bool = False,             # Whether to print file names
+        group_highlights_by_color: bool = False,  # Whether to group highlights by color
+        remove_hyphens: bool = True,              # Whether to remove hyphens across a line break
+        wrap_column: typ.Optional[int] = None,    # Column at which output is word-wrapped
+        **kwargs: typ.Any                         # Other args, ignored
     ) -> None:
         self.print_filename = print_filename
+        self.group_highlights_by_color = group_highlights_by_color
         self.remove_hyphens = remove_hyphens
         self.wrap_column = wrap_column
         self.condense = condense
@@ -286,15 +289,32 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
 
         self._fmt_header_called = False
 
-        def fmt_header(name: str) -> str:
+        def fmt_header(name: str, level: int = 2) -> str:
+            """
+            A function that formats a header with a given name and level.
+
+            Parameters:
+                name (str): The name of the header.
+                level (int, optional): The level of the header. Defaults to 2.
+
+            Returns:
+                str: The formatted header.
+            """
             # emit blank separator line if needed
             prefix = '\n' if self._fmt_header_called else ''
             self._fmt_header_called = True
-            return prefix + "## " + name + "\n\n"
+            header = '#' * level
+            return prefix + header + " " + name + "\n"
 
         # Partition annotations into nits, comments, and highlights.
         nits = []
         comments = []
+        # Create a defaultdict to hold grouped highlights by color.
+        highlights_by_color: typ.DefaultDict[
+            typ.Union[RGB, str],
+            typ.List[Annotation]
+        ] = defaultdict(list)
+        # Create just a normal list for highlights when the defaultdict above is not needed
         highlights = []
         for a in document.iter_annots():
             if a.subtype in self.ANNOT_NITS:
@@ -302,13 +322,30 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
             elif a.contents:
                 comments.append(a)
             elif a.subtype == AnnotationType.Highlight:
-                highlights.append(a)
+                if self.group_highlights_by_color:
+                    if a.color:
+                        color: typ.Union[RGB, str] = a.color
+                    else:
+                        color = "undefined"
+                    highlights_by_color[color].append(a)
+                else:
+                    highlights.append(a)
 
         for secname in self.sections:
-            if highlights and secname == 'highlights':
+            if (
+                self.group_highlights_by_color
+                and highlights_by_color
+                and secname == 'highlights'
+            ):
                 yield fmt_header("Highlights")
-                for a in highlights:
-                    yield self.format_annot(a, document)
+                for color, annots in highlights_by_color.items():
+                    yield fmt_header(f"Color: {color}", level=3)
+                    for a in annots:
+                        yield self.format_annot(a, document)
+            else:
+                if highlights and secname == 'highlights':
+                    for a in highlights:
+                        yield self.format_annot(a, document)
 
             if comments and secname == 'comments':
                 yield fmt_header("Detailed comments")
