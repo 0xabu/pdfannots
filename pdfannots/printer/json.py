@@ -15,7 +15,7 @@ def annot_to_dict(
 
     result = {
         "type": annot.subtype.name,
-        "page_number": annot.pos.page.pageno + 1,
+        "page": annot.pos.page.pageno + 1,
         "page_label": annot.pos.page.label,
         "start_xy": (annot.pos.x, annot.pos.y),
         "prior_outline": getattr(doc.nearest_outline(annot.pos), 'title', None),
