@@ -89,12 +89,14 @@ class MarkdownPrinter(Printer):
         print_filename: bool = False,             # Whether to print file names
         group_highlights_by_color: bool = False,  # Whether to group highlights by color
         remove_hyphens: bool = True,              # Whether to remove hyphens across a line break
+        use_page_labels: bool = True,             # Whether to use page labels
         wrap_column: typ.Optional[int] = None,    # Column at which output is word-wrapped
         **kwargs: typ.Any                         # Other args, ignored
     ) -> None:
         self.print_filename = print_filename
         self.group_highlights_by_color = group_highlights_by_color
         self.remove_hyphens = remove_hyphens
+        self.use_page_labels = use_page_labels
         self.wrap_column = wrap_column
         self.condense = condense
 
@@ -139,10 +141,11 @@ class MarkdownPrinter(Printer):
     @staticmethod
     def format_pos(
         pos: Pos,
-        document: Document
+        document: Document,
+        use_page_label: bool
     ) -> str:
 
-        result = str(pos.page).title()
+        result = pos.page.pretty_name(use_label=use_page_label).title()
 
         o = document.nearest_outline(pos)
         if o:
@@ -229,7 +232,7 @@ class MarkdownPrinter(Printer):
 
         # compute the formatted position (and extra bit if needed) as a label
         assert annot.pos is not None
-        label = self.format_pos(annot.pos, document) + \
+        label = self.format_pos(annot.pos, document, self.use_page_labels) + \
             (" " + extra if extra else "") + ":"
 
         # If we have short (few words) text with a short or no comment, and the

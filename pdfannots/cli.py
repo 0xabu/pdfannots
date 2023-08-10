@@ -16,6 +16,7 @@ MD_FORMAT_ARGS = [
     'group_highlights_by_color',
     'print_filename',
     'sections',
+    'use_page_labels',
     'wrap_column',
 ]
 """Names of arguments passed to the markdown printer."""
@@ -74,6 +75,8 @@ def parse_args() -> typ.Tuple[argparse.Namespace, LAParams]:
                          ', '.join(GroupedMarkdownPrinter.ALL_SECTIONS)))
     g.add_argument("--no-condense", dest="condense", default=True, action="store_false",
                    help="Emit annotations as a blockquote regardless of length.")
+    g.add_argument("--no-page-labels", dest="use_page_labels", default=True, action="store_false",
+                   help="Ignore page labels if present, just print 1-based page numbers.")
     g.add_argument("--print-filename", dest="print_filename", default=False, action="store_true",
                    help="Print the name of each file with annotations.")
     g.add_argument("-w", "--wrap", dest="wrap_column", metavar="COLS", type=int,
