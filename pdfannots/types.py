@@ -131,7 +131,10 @@ class Page:
         return '<Page #%d>' % self.pageno  # zero-based page index
 
     def __str__(self) -> str:
-        if self.label:
+        return self.format_name()
+
+    def format_name(self, use_label: bool = True) -> str:
+        if self.label and use_label:
             return 'page %s' % self.label
         else:
             # + 1 for 1-based page numbers in normal program output (error messages, etc.)
