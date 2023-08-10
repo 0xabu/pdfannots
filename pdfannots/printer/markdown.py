@@ -313,7 +313,7 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
         nits = []
         comments = []
         highlights = []  # When grouping by color, this holds only the undefined annotations
-        highlights_by_color: typ.DefaultDict[typ.RGB, typ.List[Annotation]] = defaultdict(list)
+        highlights_by_color: typ.DefaultDict[RGB, typ.List[Annotation]] = defaultdict(list)
 
         for a in document.iter_annots():
             if a.subtype in self.ANNOT_NITS:
