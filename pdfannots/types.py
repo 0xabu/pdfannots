@@ -494,3 +494,6 @@ class RGB(typ.NamedTuple):
         green_hex = format(int(self.green * 255), '02x')
         blue_hex = format(int(self.blue * 255), '02x')
         return f"#{str(red_hex)}{str(green_hex)}{(blue_hex)}"
+
+    def __str__(self) -> str:
+        return self.ashex()
