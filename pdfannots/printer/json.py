@@ -16,29 +16,18 @@ def annot_to_dict(
     result = {
         "type": annot.subtype.name,
         "page": annot.pos.page.pageno + 1,
+        "page_label": annot.pos.page.label,
         "start_xy": (annot.pos.x, annot.pos.y),
+        "prior_outline": getattr(doc.nearest_outline(annot.pos), 'title', None),
+        "text": annot.gettext(remove_hyphens),
+        "contents": annot.contents,
+        "author": annot.author,
+        "created": annot.created.strftime('%Y-%m-%dT%H:%M:%S') if annot.created else None,
+        "color": annot.color.ashex() if annot.color else None
     }
 
-    outline = doc.nearest_outline(annot.pos)
-    if outline:
-        result["prior_outline"] = outline.title
-
-    if annot.text:
-        result['text'] = annot.gettext(remove_hyphens)
-
-    if annot.contents:
-        result['contents'] = annot.contents
-
-    if annot.author:
-        result['author'] = annot.author
-
-    if annot.created:
-        result['created'] = annot.created.strftime('%Y-%m-%dT%H:%M:%S')
-
-    if annot.color:
-        result['color'] = annot.color.ashex()
-
-    return result
+    # Remove keys with None values in nested dictionary and return
+    return {k: v for k, v in result.items() if v is not None}
 
 
 class JsonPrinter(Printer):
