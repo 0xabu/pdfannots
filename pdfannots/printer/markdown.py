@@ -145,7 +145,7 @@ class MarkdownPrinter(Printer):
         use_page_label: bool
     ) -> str:
 
-        result = pos.page.pretty_name(use_label=use_page_label).title()
+        result = pos.page.format_name(use_label=use_page_label).title()
 
         o = document.nearest_outline(pos)
         if o:
