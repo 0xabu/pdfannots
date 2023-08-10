@@ -13,7 +13,6 @@ from .printer.json import JsonPrinter
 
 MD_FORMAT_ARGS = [
     'condense',
-    'group',
     'group_highlights_by_color',
     'print_filename',
     'sections',
