@@ -11,14 +11,14 @@ from .printer.markdown import MarkdownPrinter, GroupedMarkdownPrinter
 from .printer.json import JsonPrinter
 
 
-MD_FORMAT_ARGS = [
+MD_FORMAT_ARGS = frozenset([
     'condense',
     'group_highlights_by_color',
     'print_filename',
     'sections',
     'use_page_labels',
     'wrap_column',
-]
+])
 """Names of arguments passed to the markdown printer."""
 
 

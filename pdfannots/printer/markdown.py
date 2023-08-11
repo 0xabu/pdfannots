@@ -85,16 +85,14 @@ class MarkdownPrinter(Printer):
     def __init__(
         self,
         *,
-        condense: bool = True,                    # Permit use of the condensed format
-        print_filename: bool = False,             # Whether to print file names
-        group_highlights_by_color: bool = False,  # Whether to group highlights by color
-        remove_hyphens: bool = True,              # Whether to remove hyphens across a line break
-        use_page_labels: bool = True,             # Whether to use page labels
-        wrap_column: typ.Optional[int] = None,    # Column at which output is word-wrapped
-        **kwargs: typ.Any                         # Other args, ignored
+        condense: bool = True,                  # Permit use of the condensed format
+        print_filename: bool = False,           # Whether to print file names
+        remove_hyphens: bool = True,            # Whether to remove hyphens across a line break
+        use_page_labels: bool = True,           # Whether to use page labels
+        wrap_column: typ.Optional[int] = None,  # Column at which output is word-wrapped
+        **kwargs: typ.Any                       # Other args, ignored
     ) -> None:
         self.print_filename = print_filename
-        self.group_highlights_by_color = group_highlights_by_color
         self.remove_hyphens = remove_hyphens
         self.use_page_labels = use_page_labels
         self.wrap_column = wrap_column
@@ -279,10 +277,12 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
         self,
         *,
         sections: typ.Sequence[str] = ALL_SECTIONS,  # controls the order of sections output
+        group_highlights_by_color: bool = False,     # Whether to group highlights by color
         **kwargs: typ.Any                            # other args -- see superclass
     ) -> None:
         super().__init__(**kwargs)
         self.sections = sections
+        self.group_highlights_by_color = group_highlights_by_color
         self._fmt_header_called: bool
 
     def emit_body(
@@ -312,43 +312,34 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
         # Partition annotations into nits, comments, and highlights.
         nits = []
         comments = []
-        # Create a defaultdict to hold grouped highlights by color.
-        highlights_by_color: typ.DefaultDict[
-            typ.Union[RGB, str],
-            typ.List[Annotation]
-        ] = defaultdict(list)
-        # Create just a normal list for highlights when the defaultdict above is not needed
-        highlights = []
+        highlights = []  # When grouping by color, this holds only the undefined annotations
+        highlights_by_color: typ.DefaultDict[RGB, typ.List[Annotation]] = defaultdict(list)
+
         for a in document.iter_annots():
             if a.subtype in self.ANNOT_NITS:
                 nits.append(a)
             elif a.contents:
                 comments.append(a)
             elif a.subtype == AnnotationType.Highlight:
-                if self.group_highlights_by_color:
-                    if a.color:
-                        color: typ.Union[RGB, str] = a.color
-                    else:
-                        color = "undefined"
-                    highlights_by_color[color].append(a)
+                if self.group_highlights_by_color and a.color:
+                    highlights_by_color[a.color].append(a)
                 else:
                     highlights.append(a)
 
         for secname in self.sections:
-            if (
-                self.group_highlights_by_color
-                and highlights_by_color
-                and secname == 'highlights'
-            ):
+            if (highlights or highlights_by_color) and secname == 'highlights':
                 yield fmt_header("Highlights")
+
                 for color, annots in highlights_by_color.items():
-                    yield fmt_header(f"Color: {color}", level=3)
+                    yield fmt_header(f"Color: {color.ashex()}", level=3)
                     for a in annots:
                         yield self.format_annot(a, document)
-            else:
-                if highlights and secname == 'highlights':
-                    for a in highlights:
-                        yield self.format_annot(a, document)
+
+                if highlights and self.group_highlights_by_color:
+                    yield fmt_header("Color: undefined", level=3)
+
+                for a in highlights:
+                    yield self.format_annot(a, document)
 
             if comments and secname == 'comments':
                 yield fmt_header("Detailed comments")
