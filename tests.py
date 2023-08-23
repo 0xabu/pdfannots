@@ -307,7 +307,7 @@ class MarkdownPrinterTest(PrinterTestBase):
 
 class JsonPrinterTest(PrinterTestBase):
     def test_flat(self) -> None:
-        p = JsonPrinter(remove_hyphens=False)
+        p = JsonPrinter(remove_hyphens=False, output_codec='utf-8')
 
         j = json.loads(
             p.begin()
