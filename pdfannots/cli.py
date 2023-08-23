@@ -149,7 +149,9 @@ def main() -> None:
         mdargs = {k: getattr(args, k) for k in MD_FORMAT_ARGS}
         printer = (GroupedMarkdownPrinter if args.group else MarkdownPrinter)(**mdargs)
     elif args.format == "json":
-        printer = JsonPrinter(remove_hyphens=args.remove_hyphens)
+        printer = JsonPrinter(
+            remove_hyphens=args.remove_hyphens,
+            output_codec=args.output.encoding)
 
     def write_if_nonempty(s: str) -> None:
         if s:

@@ -31,9 +31,18 @@ def annot_to_dict(
 
 
 class JsonPrinter(Printer):
-    def __init__(self, *, remove_hyphens: bool) -> None:
-        self.remove_hyphens = remove_hyphens  # Whether to remove hyphens across a line break
+    def __init__(
+            self,
+            *,
+            remove_hyphens: bool,  # Whether to remove hyphens across a line break
+            output_codec: str      # Text codec in use for output
+    ) -> None:
+        self.remove_hyphens = remove_hyphens
         self.seen_first = False
+
+        # JSON must be represented as UTF-8, UTF-16, or UTF-32. If the output codec is
+        # one of these, we can disable ASCII string escaping in the JSON encoder.
+        self.ensure_ascii = output_codec not in ['utf-8', 'utf-16', 'utf-32']
 
     def end(self) -> str:
         return '\n'
@@ -51,4 +60,4 @@ class JsonPrinter(Printer):
             self.seen_first = True
 
         annots = [annot_to_dict(document, a, self.remove_hyphens) for a in document.iter_annots()]
-        yield from json.JSONEncoder(indent=2).iterencode(annots)
+        yield from json.JSONEncoder(indent=2, ensure_ascii=self.ensure_ascii).iterencode(annots)
