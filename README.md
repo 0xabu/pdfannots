@@ -38,7 +38,7 @@ identify to which section in the document the annotation refers.
 
 To install the latest released version from PyPI, use a command such as:
 ```
-pip3 install pdfannots
+python3 -m pip install pdfannots
 ```
 
 
