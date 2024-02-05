@@ -86,12 +86,14 @@ class MarkdownPrinter(Printer):
         self,
         *,
         condense: bool = True,                  # Permit use of the condensed format
+        page_number_offset: int = 0,            # Page number offset
         print_filename: bool = False,           # Whether to print file names
         remove_hyphens: bool = True,            # Whether to remove hyphens across a line break
         use_page_labels: bool = True,           # Whether to use page labels
         wrap_column: typ.Optional[int] = None,  # Column at which output is word-wrapped
         **kwargs: typ.Any                       # Other args, ignored
     ) -> None:
+        self.page_number_offset = page_number_offset
         self.print_filename = print_filename
         self.remove_hyphens = remove_hyphens
         self.use_page_labels = use_page_labels
@@ -140,10 +142,13 @@ class MarkdownPrinter(Printer):
     def format_pos(
         pos: Pos,
         document: Document,
-        use_page_label: bool
+        use_page_label: bool,
+        page_number_offset: int
     ) -> str:
 
-        result = pos.page.format_name(use_label=use_page_label).title()
+        result = pos.page.format_name(
+            use_label=use_page_label,
+            page_number_offset=page_number_offset).title()
 
         o = document.nearest_outline(pos)
         if o:
@@ -230,8 +235,9 @@ class MarkdownPrinter(Printer):
 
         # compute the formatted position (and extra bit if needed) as a label
         assert annot.pos is not None
-        label = self.format_pos(annot.pos, document, self.use_page_labels) + \
-            (" " + extra if extra else "") + ":"
+        label = self.format_pos(
+            annot.pos, document, self.use_page_labels, self.page_number_offset
+        ) + (" " + extra if extra else "") + ":"
 
         # If we have short (few words) text with a short or no comment, and the
         # text contains no embedded full stops or quotes, then we'll just put

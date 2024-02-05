@@ -14,6 +14,7 @@ from .printer.json import JsonPrinter
 MD_FORMAT_ARGS = frozenset([
     'condense',
     'group_highlights_by_color',
+    'page_number_offset',
     'print_filename',
     'sections',
     'use_page_labels',
@@ -77,6 +78,8 @@ def parse_args() -> typ.Tuple[argparse.Namespace, LAParams]:
                    help="Emit annotations as a blockquote regardless of length.")
     g.add_argument("--no-page-labels", dest="use_page_labels", default=True, action="store_false",
                    help="Ignore page labels if present, just print 1-based page numbers.")
+    g.add_argument("--page-number-offset", dest="page_number_offset", default=0, type=int,
+                   help="Increase or decrease page numbers with a fixed offset.")
     g.add_argument("--print-filename", dest="print_filename", default=False, action="store_true",
                    help="Print the name of each file with annotations.")
     g.add_argument("-w", "--wrap", dest="wrap_column", metavar="COLS", type=int,

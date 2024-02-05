@@ -133,12 +133,12 @@ class Page:
     def __str__(self) -> str:
         return self.format_name()
 
-    def format_name(self, use_label: bool = True) -> str:
+    def format_name(self, use_label: bool = True, page_number_offset: int = 0) -> str:
         if self.label and use_label:
             return 'page %s' % self.label
         else:
             # + 1 for 1-based page numbers in normal program output (error messages, etc.)
-            return 'page #%d' % (self.pageno + 1)
+            return 'page #%d' % (self.pageno + 1 + page_number_offset)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Page):

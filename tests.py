@@ -4,6 +4,7 @@ import functools
 import json
 import operator
 import pathlib
+import re
 import typing as typ
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -279,6 +280,17 @@ class MarkdownPrinterTest(PrinterTestBase):
 
         self.assertGreater(linecount, 5)
         self.assertGreater(charcount, 500)
+
+    def test_flat_page_number_offset(self) -> None:
+        p = MarkdownPrinter(page_number_offset=-1)
+
+        page_numbers = []
+        for line in p.print_file('dummyfile', self.doc):
+            m = re.match(r'.+Page #([0-9])', line)
+            if m:
+                page_numbers.append(m[1])
+
+        self.assertEqual(page_numbers, ['0', '0', '1', '1', '1', '1', '3', '3', '3'])
 
     def test_grouped(self) -> None:
         p = GroupedMarkdownPrinter(wrap_column=80)
