@@ -50,7 +50,7 @@ options and invocation.
 
 ### Dependencies
 
- * Python >= 3.7
+ * Python >= 3.8
  * [pdfminer.six](https://github.com/pdfminer/pdfminer.six)
 
 
