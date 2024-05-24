@@ -397,7 +397,7 @@ class Annotation(ObjectWithPos):
         # default initial contents are a copy of the selected text. Unless the user goes to
         # the trouble of editing each annotation, this goes badly for us because we have
         # duplicate text and contents (e.g., for simple highlights and strikeout).
-        if self.contents and self.text and self.gettext().strip() == self.contents.strip():
+        if self.contents and (text := self.gettext()) and text.strip() == self.contents.strip():
             self.contents = None
 
 
