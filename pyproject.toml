@@ -1,0 +1,52 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pdfannots"
+dynamic = ["version"]
+requires-python = ">=3.8"
+dependencies = ["pdfminer.six >= 20220319"]
+description = "Tool to extract and pretty-print PDF annotations for reviewing"
+readme = "README.md"
+license = {file = "LICENSE.txt"}
+authors = [
+    {name = "Andrew Baumann", email = "pdfannots.pypi.org@ab.id.au"},
+]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Topic :: Text Processing",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+[project.scripts]
+pdfannots = "pdfannots.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/0xabu/pdfannots"
+
+[tool.hatch.version]
+path = "pdfannots/__init__.py"
+
+[tool.mypy]
+# strict mode
+warn_unused_configs = true
+disallow_any_generics = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+no_implicit_reexport = true
+strict_equality = true

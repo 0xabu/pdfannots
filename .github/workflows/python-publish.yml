@@ -23,10 +23,10 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install build twine
+        pip install build twine hatchling
     - name: Extract version
       id: get-version
-      run: echo "::set-output name=VERSION::$(python setup.py --version)"
+      run: echo "::set-output name=VERSION::$(python -m hatchling version)"
     - name: Build package
       run: python -m build
     - name: Check package
