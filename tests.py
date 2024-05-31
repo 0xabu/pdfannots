@@ -63,6 +63,7 @@ class ExtractionTests(ExtractionTestBase):
         EXPECTED = [
             (0, AnnotationType.Squiggly, None, 'recent Intel CPUs have introduced'),
             (0, AnnotationType.Text, 'This is a note with no text attached.', None),
+            (0, AnnotationType.StrikeOut, None, 'e'),
             (1, AnnotationType.Highlight, None,
              'TSX launched with "Haswell" in 2013 but was later disabled due to a bug. '
              '"Broadwell" CPUs with the bug fix shipped in late 2014.'),
@@ -87,6 +88,13 @@ class ExtractionTests(ExtractionTestBase):
                 expected)
         self.assertEqual(self.annots[0].created, datetime(
             2019, 1, 19, 21, 29, 42, tzinfo=timezone(-timedelta(hours=8))))
+
+        # test for correct whitespace on the strikeout annot
+        a = self.annots[2]
+        self.assertTrue(a.has_context())
+        (pre, post) = a.get_context()
+        self.assertEndsWith(pre, 'widths, ar')
+        self.assertStartsWith(post, ' counted')
 
     def test_outlines(self) -> None:
         EXPECTED = [
@@ -290,7 +298,7 @@ class MarkdownPrinterTest(PrinterTestBase):
             if m:
                 page_numbers.append(m[1])
 
-        self.assertEqual(page_numbers, ['0', '0', '1', '1', '1', '1', '3', '3', '3'])
+        self.assertEqual(page_numbers, ['0', '0', '0', '1', '1', '1', '1', '3', '3', '3'])
 
     def test_grouped(self) -> None:
         p = GroupedMarkdownPrinter(wrap_column=80)
@@ -327,7 +335,7 @@ class JsonPrinterTest(PrinterTestBase):
             + p.end())
 
         self.assertTrue(isinstance(j, list))
-        self.assertEqual(len(j), 9)
+        self.assertEqual(len(j), 10)
 
 
 if __name__ == "__main__":

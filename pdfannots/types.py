@@ -372,13 +372,16 @@ class Annotation(ObjectWithPos):
     def set_post_context(self, post_context: str) -> None:
         assert self.post_context is None
 
-        # If the captured text ends in space, move it to the context.
-        if self.text:
-            whitespace = []
-            while self.text[-1].isspace():
-                whitespace.append(self.text.pop())
-            if whitespace:
-                post_context = ''.join(whitespace) + post_context
+        # If the text ends in a (broadcast) newline, discard it lest it mess up the context below.
+        if self.text and self.text[-1] == '\n':
+            self.text.pop()
+
+        # If the captured text ends in any (other) space, move it to the context.
+        whitespace = []
+        while self.text and self.text[-1].isspace():
+            whitespace.append(self.text.pop())
+        if whitespace:
+            post_context = ''.join(whitespace) + post_context
 
         self.post_context = post_context
 
