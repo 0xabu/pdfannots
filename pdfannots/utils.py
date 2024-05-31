@@ -58,11 +58,19 @@ def merge_lines(captured_text: str, remove_hyphens: bool = False, strip_space: b
 
         results.append(cleanup_text(thisline))
 
-    if results and strip_space:
-        results[0] = results[0].lstrip()
-        results[-1] = results[-1].rstrip()
+    result = ''.join(results)
 
-    return ''.join(results)
+    if result:
+        if strip_space:
+            result = result.strip()
+        else:
+            # re-insert load-bearing spaces from linebreaks when needed for context
+            if len(lines) > 0 and lines[0] == '' and not result[0].isspace():
+                result = ' ' + result
+            if len(lines) > 1 and lines[-1] == '' and not result[-1].isspace():
+                result += ' '
+
+    return result
 
 
 def decode_datetime(dts: str) -> typ.Optional[datetime.datetime]:
