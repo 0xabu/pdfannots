@@ -9,6 +9,7 @@ import typing as typ
 
 from pdfminer.layout import LTComponent, LTText
 from pdfminer.pdftypes import PDFObjRef
+from pdfminer.psparser import PSLiteralTable, PSLiteral
 
 from .utils import merge_lines
 
@@ -32,6 +33,9 @@ class Box:
         self.x1 = x1
         self.y0 = y0
         self.y1 = y1
+
+    def __repr__(self) -> str:
+        return '<Box x0:%f x1:%f y0:%f y1:%f>' % (self.x0, self.x1, self.y0, self.y1)
 
     @staticmethod
     def from_item(item: LTComponent) -> Box:
@@ -260,6 +264,7 @@ class AnnotationType(enum.Enum):
     Squiggly = enum.auto()
     StrikeOut = enum.auto()
     Underline = enum.auto()
+    Caret = enum.auto()
 
     # A single rectangle, that is abused by some Apple tools to render custom
     # highlights. We do not attempt to capture the affected text.
@@ -281,8 +286,10 @@ class Annotation(ObjectWithPos):
         created      Timestamp the annotation was created
         color        RGB color of the annotation
         last_charseq Sequence number of the most recent character in text
+        name         Unique identifier for the annotation
+        in_reply_to  Name of the annotation this annotation is in reply to
 
-    Attributes updated only for StrikeOut annotations:
+    Attributes updated for StrikeOut and Caret annotations:
         pre_context  Text captured just prior to the beginning of 'text'
         post_context Text captured just after the end of 'text'
     """
@@ -302,7 +309,9 @@ class Annotation(ObjectWithPos):
             contents: typ.Optional[str] = None,
             author: typ.Optional[str] = None,
             created: typ.Optional[datetime.datetime] = None,
-            color: typ.Optional[RGB] = None):
+            color: typ.Optional[RGB] = None,
+            in_reply_to: typ.Optional[PDFObjRef] = None,
+            name: typ.Optional[str] = None):
 
         # Construct boxes from quadpoints
         boxes = []
@@ -334,12 +343,15 @@ class Annotation(ObjectWithPos):
         self.post_context = None
         self.boxes = boxes
         self.last_charseq = 0
+        self.name = name
+        self.in_reply_to = in_reply_to
 
     def __repr__(self) -> str:
-        return ('<Annotation %s %r%s%s>' %
+        return ('<Annotation %s %r%s%s%s>' %
                 (self.subtype.name, self.pos,
                  " '%s'" % self.contents[:10] if self.contents else '',
-                 " '%s'" % ''.join(self.text[:10]) if self.text else ''))
+                 " '%s'" % ''.join(self.text[:10]) if self.text else '',
+                 " IRT" if self.in_reply_to else ''))
 
     def capture(self, text: str, charseq: int = 0) -> None:
         """Capture text (while rendering the PDF page)."""
@@ -363,7 +375,7 @@ class Annotation(ObjectWithPos):
 
     def wants_context(self) -> bool:
         """Returns true if this annotation type should include context."""
-        return self.subtype == AnnotationType.StrikeOut
+        return self.subtype == AnnotationType.StrikeOut or self.subtype == AnnotationType.Caret
 
     def set_pre_context(self, pre_context: str) -> None:
         assert self.pre_context is None
@@ -504,3 +516,16 @@ class RGB(typ.NamedTuple):
 
     def __str__(self) -> str:
         return f"RGB({self.ashex()})"
+
+
+ANNOT_SUBTYPES: typ.Dict[PSLiteral, AnnotationType] = {
+    PSLiteralTable.intern(e.name): e for e in AnnotationType}
+"""Mapping from PSliteral to our own enumerant, for supported annotation types."""
+
+IGNORED_ANNOT_SUBTYPES = \
+    frozenset(PSLiteralTable.intern(n) for n in (
+        'Link',   # Links are used for internal document links (e.g. to other pages).
+        'Popup',  # Controls the on-screen appearance of other annotations. TODO: we may want to
+                  # check for an optional 'Contents' field for alternative human-readable contents.
+    ))
+"""Annotation types that we ignore without issuing a warning."""

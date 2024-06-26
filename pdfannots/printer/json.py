@@ -21,6 +21,8 @@ def annot_to_dict(
         "prior_outline": getattr(doc.nearest_outline(annot.pos), 'title', None),
         "text": annot.gettext(remove_hyphens),
         "contents": annot.contents,
+        "pre_context": annot.pre_context,
+        "post_context": annot.post_context,
         "author": annot.author,
         "created": annot.created.strftime('%Y-%m-%dT%H:%M:%S') if annot.created else None,
         "color": ('#' + annot.color.ashex()) if annot.color else None

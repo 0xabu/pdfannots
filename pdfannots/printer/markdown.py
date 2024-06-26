@@ -4,7 +4,7 @@ import textwrap
 import typing as typ
 
 from . import Printer
-from ..types import RGB, AnnotationType, Pos, Annotation, Document
+from ..types import RGB, AnnotationType, Pos, Annotation, Document, ANNOT_SUBTYPES
 
 logger = logging.getLogger('pdfannots')
 
@@ -223,7 +223,7 @@ class MarkdownPrinter(Printer):
                    if annot.contents else [])
 
         if annot.has_context():
-            assert annot.subtype == AnnotationType.StrikeOut
+            assert annot.subtype == AnnotationType.StrikeOut or annot.subtype == AnnotationType.Caret
             text = self.merge_strikeout_context(annot, text)
 
         # we are either printing: item text and item contents, or one of the two
@@ -276,7 +276,8 @@ class MarkdownPrinter(Printer):
 
 class GroupedMarkdownPrinter(MarkdownPrinter):
     ANNOT_NITS = frozenset({
-        AnnotationType.Squiggly, AnnotationType.StrikeOut, AnnotationType.Underline})
+        AnnotationType.Squiggly, AnnotationType.StrikeOut, AnnotationType.Caret, 
+        AnnotationType.Underline})
     ALL_SECTIONS = ["highlights", "comments", "nits"]
 
     def __init__(
@@ -355,5 +356,21 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
             if nits and secname == 'nits':
                 yield fmt_header("Nits")
                 for a in nits:
-                    extra = "suggested deletion" if a.subtype == AnnotationType.StrikeOut else None
+                    extra = None
+
+                    if a.subtype == AnnotationType.StrikeOut:
+                        irt_type = None
+
+                        if a.in_reply_to:
+                            irt_subtype = a.in_reply_to.get('Subtype')
+                            if irt_subtype:
+                                irt_type = ANNOT_SUBTYPES[irt_subtype]
+                        
+                        if a.contents and irt_type == AnnotationType.Caret:
+                            extra = "suggested replacement" 
+                        else:
+                            extra = "suggested deletion"
+                    elif a.subtype == AnnotationType.Caret:
+                        extra = "suggested insertion"
+
                     yield self.format_annot(a, document, extra)
