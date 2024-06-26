@@ -85,7 +85,7 @@ def _mkannotation(
     rect = pdftypes.resolve1(pa.get('Rect'))
 
     # QuadPoints are defined only for "markup" annotations (Highlight, Underline, StrikeOut,
-    # Squiggly), where they specify the quadrilaterals (boxes) covered by the annotation.
+    # Squiggly, Caret), where they specify the quadrilaterals (boxes) covered by the annotation.
     quadpoints = pdftypes.resolve1(pa.get('QuadPoints'))
 
     author = pdftypes.resolve1(pa.get('T'))
@@ -261,7 +261,9 @@ class _PDFProcessor(PDFLayoutAnalyzer):
                     # Locate and remove the annotation's existing context subscription.
                     assert last_charseq != 0
                     i = bisect.bisect_left(self.context_subscribers, (last_charseq,))
-                    assert 0 <= i < len(self.context_subscribers)
+                    if not (0 <= i < len(self.context_subscribers)):
+                        logger.warning("Annotation %s lost context subscription", a)
+                        continue
                     (found_charseq, found_annot) = self.context_subscribers.pop(i)
                     assert found_charseq == last_charseq
                     assert found_annot is a
@@ -398,9 +400,25 @@ def process_file(
             if isinstance(pa, pdftypes.PDFObjRef):
                 annot_dict = pdftypes.dict_value(pa)
                 if annot_dict:  # Would be empty if pa is a broken ref
-                    annot = _mkannotation(annot_dict, page)
-                    if annot is not None:
-                        page.annots.append(annot)
+                    subtype = annot_dict.get('Subtype')
+                    try:
+                        annot_type = ANNOT_SUBTYPES[subtype]
+                    except KeyError:
+                        pass
+
+                    if annot_type == AnnotationType.Caret:
+                        # Modify the last annotation to add content
+                        contents = annot_dict.get('Contents')
+                        if contents is not None:
+                            contents = cleanup_text(pdfminer.utils.decode_text(contents))
+
+                        if contents:
+                            page.annots[-1].contents = contents
+                            page.annots[-1].subtype = annot_type
+                    else:
+                        annot = _mkannotation(annot_dict, page)
+                        if annot is not None:
+                            page.annots.append(annot)
             else:
                 logger.warning("Unknown annotation: %s", pa)
 

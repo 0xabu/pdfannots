@@ -260,6 +260,7 @@ class AnnotationType(enum.Enum):
     Squiggly = enum.auto()
     StrikeOut = enum.auto()
     Underline = enum.auto()
+    Caret = enum.auto()
 
     # A single rectangle, that is abused by some Apple tools to render custom
     # highlights. We do not attempt to capture the affected text.
@@ -282,7 +283,7 @@ class Annotation(ObjectWithPos):
         color        RGB color of the annotation
         last_charseq Sequence number of the most recent character in text
 
-    Attributes updated only for StrikeOut annotations:
+    Attributes updated for StrikeOut and Caret annotations:
         pre_context  Text captured just prior to the beginning of 'text'
         post_context Text captured just after the end of 'text'
     """
@@ -363,7 +364,7 @@ class Annotation(ObjectWithPos):
 
     def wants_context(self) -> bool:
         """Returns true if this annotation type should include context."""
-        return self.subtype == AnnotationType.StrikeOut
+        return self.subtype == AnnotationType.StrikeOut or self.subtype == AnnotationType.Caret
 
     def set_pre_context(self, pre_context: str) -> None:
         assert self.pre_context is None
