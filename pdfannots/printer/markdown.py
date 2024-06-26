@@ -4,7 +4,7 @@ import textwrap
 import typing as typ
 
 from . import Printer
-from ..types import RGB, AnnotationType, Pos, Annotation, Document
+from ..types import RGB, AnnotationType, Pos, Annotation, Document, ANNOT_SUBTYPES
 
 logger = logging.getLogger('pdfannots')
 
@@ -359,8 +359,18 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
                     extra = None
 
                     if a.subtype == AnnotationType.StrikeOut:
-                        extra = "suggested deletion" 
+                        irt_type = None
+
+                        if a.in_reply_to:
+                            irt_subtype = a.in_reply_to.get('Subtype')
+                            if irt_subtype:
+                                irt_type = ANNOT_SUBTYPES[irt_subtype]
+                        
+                        if a.contents and irt_type == AnnotationType.Caret:
+                            extra = "suggested replacement" 
+                        else:
+                            extra = "suggested deletion"
                     elif a.subtype == AnnotationType.Caret:
-                        extra = "suggested replacement"
+                        extra = "suggested insertion"
 
                     yield self.format_annot(a, document, extra)

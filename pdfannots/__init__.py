@@ -22,24 +22,12 @@ from pdfminer import pdftypes
 import pdfminer.settings
 import pdfminer.utils
 
-from .types import Page, Outline, AnnotationType, Annotation, Document, RGB
+from .types import Page, Outline, AnnotationType, Annotation, Document, RGB, ANNOT_SUBTYPES, IGNORED_ANNOT_SUBTYPES
 from .utils import cleanup_text, decode_datetime
 
 pdfminer.settings.STRICT = False
 
 logger = logging.getLogger('pdfannots')
-
-ANNOT_SUBTYPES: typ.Dict[PSLiteral, AnnotationType] = {
-    PSLiteralTable.intern(e.name): e for e in AnnotationType}
-"""Mapping from PSliteral to our own enumerant, for supported annotation types."""
-
-IGNORED_ANNOT_SUBTYPES = \
-    frozenset(PSLiteralTable.intern(n) for n in (
-        'Link',   # Links are used for internal document links (e.g. to other pages).
-        'Popup',  # Controls the on-screen appearance of other annotations. TODO: we may want to
-                  # check for an optional 'Contents' field for alternative human-readable contents.
-    ))
-"""Annotation types that we ignore without issuing a warning."""
 
 
 def _mkannotation(
@@ -103,8 +91,13 @@ def _mkannotation(
         createds = pdfminer.utils.decode_text(createds)
         created = decode_datetime(createds)
 
+    name = pdftypes.resolve1(pa.get('NM')).decode('utf-8')
+
+    in_reply_to = pdftypes.resolve1(pa.get('IRT'))
+
     return Annotation(page, annot_type, quadpoints, rect,
-                      contents, author=author, created=created, color=rgb)
+                      contents, author=author, created=created, color=rgb,
+                      name=name, in_reply_to=in_reply_to)
 
 
 def _get_outlines(doc: PDFDocument) -> typ.Iterator[Outline]:
@@ -331,6 +324,47 @@ class _PDFProcessor(PDFLayoutAnalyzer):
                 self.capture_char(text)
 
 
+def _find_and_modify_replace_annots(annots: typ.List[Annotation], outlines: typ.List[Outline]) -> typ.Tuple[typ.List[Annotation], typ.List[Outline]]:
+    strikeout_pending_replies = {}
+    carets_to_remove = []
+
+    # Give the annotations a chance to update their internals
+    for a in annots:
+        in_reply_to_name = None
+
+        if a.in_reply_to:
+            in_reply_to_name = a.in_reply_to.get('NM').decode('utf-8')
+
+        if in_reply_to_name and a.subtype == AnnotationType.StrikeOut:
+            strikeout_pending_replies[in_reply_to_name] = a
+            carets_to_remove.append(in_reply_to_name)
+        a.postprocess()
+
+    for a in annots:
+        in_reply_to_name = None
+
+        if a.in_reply_to:
+            in_reply_to_name = a.in_reply_to.get('NM').decode('utf-8')
+
+        if in_reply_to_name and a.subtype == AnnotationType.StrikeOut:
+            strikeout_pending_replies[in_reply_to_name] = a
+            carets_to_remove.append(in_reply_to_name)
+        
+    # Copy the contents of the StrikeOut annotations to the corresponding Caret annotations
+    for a in annots:
+        if a.name in strikeout_pending_replies:
+            strikeout_a = strikeout_pending_replies[a.name]
+            strikeout_a.contents = a.contents
+    
+    # Remove any Caret annotations that are replies to other StrikeOut annotations
+    idxs_to_remove = [i for i, a in enumerate(annots) if a.name in carets_to_remove]
+    
+    annots = [a for i, a in enumerate(annots) if i not in idxs_to_remove]
+    outlines = [o for o in outlines if o.title]
+
+    return annots, outlines
+
+
 def process_file(
     file: typ.BinaryIO,
     *,  # Subsequent arguments are keyword-only
@@ -400,25 +434,9 @@ def process_file(
             if isinstance(pa, pdftypes.PDFObjRef):
                 annot_dict = pdftypes.dict_value(pa)
                 if annot_dict:  # Would be empty if pa is a broken ref
-                    subtype = annot_dict.get('Subtype')
-                    try:
-                        annot_type = ANNOT_SUBTYPES[subtype]
-                    except KeyError:
-                        pass
-
-                    if annot_type == AnnotationType.Caret:
-                        # Modify the last annotation to add content
-                        contents = annot_dict.get('Contents')
-                        if contents is not None:
-                            contents = cleanup_text(pdfminer.utils.decode_text(contents))
-
-                        if contents:
-                            page.annots[-1].contents = contents
-                            page.annots[-1].subtype = annot_type
-                    else:
-                        annot = _mkannotation(annot_dict, page)
-                        if annot is not None:
-                            page.annots.append(annot)
+                    annot = _mkannotation(annot_dict, page)
+                    if annot is not None:
+                        page.annots.append(annot)
             else:
                 logger.warning("Unknown annotation: %s", pa)
 
@@ -436,9 +454,7 @@ def process_file(
         page.annots.sort()
         page.outlines.sort()
 
-        # Give the annotations a chance to update their internals
-        for a in page.annots:
-            a.postprocess()
+        page.annots, page.outlines = _find_and_modify_replace_annots(page.annots, page.outlines)
 
     emit_progress("\n")
 
