@@ -246,49 +246,43 @@ class _PDFProcessor(PDFLayoutAnalyzer):
                 break
 
     def capture_char(self, text: str) -> None:
-        """Capture a non-newline character."""
-        assert text != '\n'
+        """Capture a character."""
         self.capture_context(text)
 
-        # Broadcast the character to annotations that include it.
-        for a in self._lasthit:
-            last_charseq = a.last_charseq
-            a.capture(text, self.charseq)
+        if text == '\n':
+            # "Broadcast" newlines to _all_ annotations that received any text on the
+            # current line, in case they see more text on the next line, even if the
+            # most recent character on the line was not covered by their boxes.
+            for a in self._curline:
+                a.capture('\n')
+            self._curline = set()
+        else:
+            # Broadcast the character to annotations that include it.
+            for a in self._lasthit:
+                last_charseq = a.last_charseq
+                a.capture(text, self.charseq)
 
-            if a.wants_context():
-                if a.has_context():
-                    # We already gave the annotation the pre-context, so it is subscribed.
-                    # Locate and remove the annotation's existing context subscription.
-                    assert last_charseq != 0
-                    i = bisect.bisect_left(self.context_subscribers, (last_charseq,))
-                    assert 0 <= i < len(self.context_subscribers)
-                    (found_charseq, found_annot) = self.context_subscribers.pop(i)
-                    assert found_charseq == last_charseq
-                    assert found_annot is a
+                if a.wants_context():
+                    if a.has_context():
+                        # We already gave the annotation the pre-context, so it is subscribed.
+                        # Locate and remove the annotation's existing context subscription.
+                        assert last_charseq != 0
+                        i = bisect.bisect_left(self.context_subscribers, (last_charseq,))
+                        assert 0 <= i < len(self.context_subscribers)
+                        (found_charseq, found_annot) = self.context_subscribers.pop(i)
+                        assert found_charseq == last_charseq
+                        assert found_annot is a
 
-                else:
-                    # This is the first hit for the annotation, so set the pre-context.
-                    assert last_charseq == 0
-                    assert len(a.text) != 0
-                    pre_context = ''.join(
-                        self.recent_text[n] for n in range(len(self.recent_text) - 1))
-                    a.set_pre_context(pre_context)
+                    else:
+                        # This is the first hit for the annotation, so set the pre-context.
+                        assert last_charseq == 0
+                        assert len(a.text) != 0
+                        pre_context = ''.join(
+                            self.recent_text[n] for n in range(len(self.recent_text) - 1))
+                        a.set_pre_context(pre_context)
 
-                # Subscribe this annotation for post-context.
-                self.context_subscribers.append((self.charseq, a))
-
-    def capture_newline(self) -> None:
-        """
-        Capture a line break.
-
-        "Broadcasts" newlines to _all_ annotations that received any text on the
-        current line, in case they see more text on the next line, even if the
-        most recent character on the line was not covered by their boxes.
-        """
-        self.capture_context('\n')
-        for a in self._curline:
-            a.capture('\n')
-        self._curline = set()
+                    # Subscribe this annotation for post-context.
+                    self.context_subscribers.append((self.charseq, a))
 
     def render(self, item: LTItem) -> None:
         """
@@ -309,7 +303,7 @@ class _PDFProcessor(PDFLayoutAnalyzer):
             # After the children of a text box, capture the end of the final
             # line (logic derived from pdfminer.converter.TextConverter).
             if isinstance(item, LTTextBox):
-                self.capture_newline()
+                self.capture_char('\n')
 
         # Each character is represented by one LTChar, and we must handle
         # individual characters (not higher-level objects like LTTextLine)
@@ -322,11 +316,7 @@ class _PDFProcessor(PDFLayoutAnalyzer):
         # the text. They don't have an (X,Y) position -- we treat them
         # the same as the most recent character.
         elif isinstance(item, LTAnno):
-            text = item.get_text()
-            if text == '\n':
-                self.capture_newline()
-            else:
-                self.capture_char(text)
+            self.capture_char(item.get_text())
 
 
 def process_file(
