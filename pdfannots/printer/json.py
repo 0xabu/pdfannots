@@ -14,6 +14,7 @@ def annot_to_dict(
     assert annot.pos
 
     result = {
+        "name": annot.name,
         "type": annot.subtype.name,
         "page": annot.pos.page.pageno + 1,
         "page_label": annot.pos.page.label,
@@ -23,7 +24,9 @@ def annot_to_dict(
         "contents": annot.contents,
         "author": annot.author,
         "created": annot.created.strftime('%Y-%m-%dT%H:%M:%S') if annot.created else None,
-        "color": ('#' + annot.color.ashex()) if annot.color else None
+        "color": ('#' + annot.color.ashex()) if annot.color else None,
+        "in_reply_to": (annot.in_reply_to.name if annot.in_reply_to and annot.in_reply_to.name
+                        else None),
     }
 
     # Remove keys with None values in nested dictionary and return

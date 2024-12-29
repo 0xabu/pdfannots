@@ -33,6 +33,9 @@ class Box:
         self.y0 = y0
         self.y1 = y1
 
+    def __repr__(self) -> str:
+        return '<Box (%f,%f) (%f,%f)>' % (self.x0, self.y0, self.x1, self.y1)
+
     @staticmethod
     def from_item(item: LTComponent) -> Box:
         """Construct a Box from the bounding box of a given PDF component."""
@@ -261,6 +264,8 @@ class AnnotationType(enum.Enum):
     StrikeOut = enum.auto()
     Underline = enum.auto()
 
+    Caret = enum.auto()
+
     # A single rectangle, that is abused by some Apple tools to render custom
     # highlights. We do not attempt to capture the affected text.
     Square = enum.auto()
@@ -274,35 +279,43 @@ class Annotation(ObjectWithPos):
     A PDF annotation, and its extracted text.
 
     Attributes:
-        subtype      PDF annotation type
-        contents     Contents of the annotation in the PDF (e.g. comment/description)
-        text         Text in the order captured (use gettext() for a cleaner form)
         author       Author of the annotation
-        created      Timestamp the annotation was created
         color        RGB color of the annotation
+        contents     Contents of the annotation in the PDF (e.g. comment/description)
+        created      Timestamp the annotation was created
+        in_reply_to  Reference to another annotation on the page that this is "in reply to"
         last_charseq Sequence number of the most recent character in text
+        name         If present, uniquely identifies this annotation among others on the page
+        replies      Annotations replying to this one (reverse of in_reply_to)
+        subtype      PDF annotation type
+        text         Text in the order captured (use gettext() for a cleaner form)
 
-    Attributes updated only for StrikeOut annotations:
+    Attributes updated for StrikeOut and Caret annotations:
         pre_context  Text captured just prior to the beginning of 'text'
         post_context Text captured just after the end of 'text'
     """
 
-    contents: typ.Optional[str]
     boxes: typ.List[Box]
-    text: typ.List[str]
+    contents: typ.Optional[str]
+    in_reply_to: typ.Optional[Annotation]
     pre_context: typ.Optional[str]
     post_context: typ.Optional[str]
+    replies: typ.List[Annotation]
+    text: typ.List[str]
 
     def __init__(
             self,
             page: Page,
             subtype: AnnotationType,
-            quadpoints: typ.Optional[typ.Sequence[float]] = None,
-            rect: typ.Optional[BoxCoords] = None,
-            contents: typ.Optional[str] = None,
+            *,
             author: typ.Optional[str] = None,
             created: typ.Optional[datetime.datetime] = None,
-            color: typ.Optional[RGB] = None):
+            color: typ.Optional[RGB] = None,
+            contents: typ.Optional[str] = None,
+            in_reply_to_ref: typ.Optional[PDFObjRef] = None,
+            name: typ.Optional[str] = None,
+            quadpoints: typ.Optional[typ.Sequence[float]] = None,
+            rect: typ.Optional[BoxCoords] = None):
 
         # Construct boxes from quadpoints
         boxes = []
@@ -324,16 +337,22 @@ class Annotation(ObjectWithPos):
         super().__init__(pos)
 
         # Initialise the attributes
-        self.subtype = subtype
-        self.contents = contents if contents else None
         self.author = author
-        self.created = created
-        self.text = []
-        self.color = color
-        self.pre_context = None
-        self.post_context = None
         self.boxes = boxes
+        self.color = color
+        self.contents = contents if contents else None
+        self.created = created
+        self.name = name
         self.last_charseq = 0
+        self.post_context = None
+        self.pre_context = None
+        self.replies = []
+        self.subtype = subtype
+        self.text = []
+
+        # The in_reply_to reference will be resolved in postprocess()
+        self._in_reply_to_ref = in_reply_to_ref
+        self.in_reply_to = None
 
     def __repr__(self) -> str:
         return ('<Annotation %s %r%s%s>' %
@@ -394,8 +413,15 @@ class Annotation(ObjectWithPos):
         return (merge_lines(self.pre_context or '', remove_hyphens, strip_space=False),
                 merge_lines(self.post_context or '', remove_hyphens, strip_space=False))
 
-    def postprocess(self) -> None:
+    def postprocess(self, annots_by_objid: typ.Dict[int, Annotation]) -> None:
         """Update internal state once all text and context has been captured."""
+        # Resole the in_reply_to object reference to its annotation
+        if self._in_reply_to_ref is not None:
+            assert self.in_reply_to is None  # This should be called once only
+            self.in_reply_to = annots_by_objid.get(self._in_reply_to_ref.objid)
+            if self.in_reply_to is not None:
+                self.in_reply_to.replies.append(self)
+
         # The Skim PDF reader (https://skim-app.sourceforge.io/) creates annotations whose
         # default initial contents are a copy of the selected text. Unless the user goes to
         # the trouble of editing each annotation, this goes badly for us because we have
@@ -466,10 +492,12 @@ class Document:
     def __init__(self) -> None:
         self.pages = []
 
-    def iter_annots(self) -> typ.Iterator[Annotation]:
+    def iter_annots(self, *, include_replies: bool = True) -> typ.Iterator[Annotation]:
         """Iterate over all the annotations in the document."""
         for p in self.pages:
-            yield from p.annots
+            for a in p.annots:
+                if include_replies or not a.in_reply_to:
+                    yield a
 
     def nearest_outline(
         self,

@@ -49,8 +49,7 @@ def _mkannotation(
     """
     Given a PDF annotation, capture relevant fields and construct an Annotation object.
 
-    Refer to Section 8.4 of the PDF spec:
-    https://www.adobe.com/content/dam/acom/en/devnet/pdf/pdfs/pdf_reference_archives/PDFReference.pdf
+    Refer to Section 8.4 of the PDF reference (version 1.7).
     """
 
     subtype = pa.get('Subtype')
@@ -85,12 +84,16 @@ def _mkannotation(
     rect = pdftypes.resolve1(pa.get('Rect'))
 
     # QuadPoints are defined only for "markup" annotations (Highlight, Underline, StrikeOut,
-    # Squiggly), where they specify the quadrilaterals (boxes) covered by the annotation.
+    # Squiggly, Caret), where they specify the quadrilaterals (boxes) covered by the annotation.
     quadpoints = pdftypes.resolve1(pa.get('QuadPoints'))
 
     author = pdftypes.resolve1(pa.get('T'))
     if author is not None:
         author = pdfminer.utils.decode_text(author)
+
+    name = pdftypes.resolve1(pa.get('NM'))
+    if name is not None:
+        name = pdfminer.utils.decode_text(name)
 
     created = None
     dobj = pa.get('CreationDate')
@@ -103,8 +106,9 @@ def _mkannotation(
         createds = pdfminer.utils.decode_text(createds)
         created = decode_datetime(createds)
 
-    return Annotation(page, annot_type, quadpoints, rect,
-                      contents, author=author, created=created, color=rgb)
+    return Annotation(page, annot_type, quadpoints=quadpoints, rect=rect, name=name,
+                      contents=contents, author=author, created=created, color=rgb,
+                      in_reply_to_ref=pa.get('IRT'))
 
 
 def _get_outlines(doc: PDFDocument) -> typ.Iterator[Outline]:
@@ -383,6 +387,10 @@ def process_file(
             o.resolve(page)
             page.outlines.append(o)
 
+        # Dict from object ID (in the ObjRef) to Annotation object
+        # This is used while post-processing to resolve inter-annotation references
+        annots_by_objid: typ.Dict[int, Annotation] = {}
+
         # Construct Annotation objects, and append them to the page.
         for pa in pdftypes.resolve1(pdfpage.annots) if pdfpage.annots else []:
             if isinstance(pa, pdftypes.PDFObjRef):
@@ -391,6 +399,8 @@ def process_file(
                     annot = _mkannotation(annot_dict, page)
                     if annot is not None:
                         page.annots.append(annot)
+                        assert pa.objid not in annots_by_objid
+                        annots_by_objid[pa.objid] = annot
             else:
                 logger.warning("Unknown annotation: %s", pa)
 
@@ -410,7 +420,7 @@ def process_file(
 
         # Give the annotations a chance to update their internals
         for a in page.annots:
-            a.postprocess()
+            a.postprocess(annots_by_objid)
 
     emit_progress("\n")
 

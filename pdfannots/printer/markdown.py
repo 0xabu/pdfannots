@@ -216,11 +216,17 @@ class MarkdownPrinter(Printer):
         document: Document,
         extra: typ.Optional[str] = None
     ) -> str:
+        # Limited support for Caret annotations with a single "reply" of type StrikeOut
+        contents = annot.contents
+        if (annot.subtype == AnnotationType.Caret and annot.replies
+                and annot.replies[0].subtype == AnnotationType.StrikeOut):
+            annot = annot.replies[0]
+            if annot.contents:
+                logger.warning("Ignored StrikeOut comment: %s", annot.contents)
 
         # capture item text and contents (i.e. the comment), and split the latter into paragraphs
         text = annot.gettext(self.remove_hyphens) or ''
-        comment = ([l for l in annot.contents.splitlines() if l]
-                   if annot.contents else [])
+        comment = [l for l in contents.splitlines() if l] if contents else []
 
         if annot.has_context():
             assert annot.subtype == AnnotationType.StrikeOut
@@ -270,13 +276,13 @@ class MarkdownPrinter(Printer):
         self,
         document: Document
     ) -> typ.Iterator[str]:
-        for a in document.iter_annots():
+        for a in document.iter_annots(include_replies=False):
             yield self.format_annot(a, document, a.subtype.name)
 
 
 class GroupedMarkdownPrinter(MarkdownPrinter):
-    ANNOT_NITS = frozenset({
-        AnnotationType.Squiggly, AnnotationType.StrikeOut, AnnotationType.Underline})
+    ANNOT_NITS = frozenset({AnnotationType.Caret, AnnotationType.Squiggly,
+                            AnnotationType.StrikeOut, AnnotationType.Underline})
     ALL_SECTIONS = ["highlights", "comments", "nits"]
 
     def __init__(
@@ -316,12 +322,12 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
             return prefix + header + " " + name + "\n"
 
         # Partition annotations into nits, comments, and highlights.
-        nits = []
-        comments = []
-        highlights = []  # When grouping by color, this holds only the undefined annotations
+        nits: typ.List[Annotation] = []
+        comments: typ.List[Annotation] = []
+        highlights: typ.List[Annotation] = []  # When grouping by color holds only undefined annots
         highlights_by_color: typ.DefaultDict[RGB, typ.List[Annotation]] = defaultdict(list)
 
-        for a in document.iter_annots():
+        for a in document.iter_annots(include_replies=False):
             if a.subtype in self.ANNOT_NITS:
                 nits.append(a)
             elif a.contents:
@@ -355,5 +361,13 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
             if nits and secname == 'nits':
                 yield fmt_header("Nits")
                 for a in nits:
-                    extra = "suggested deletion" if a.subtype == AnnotationType.StrikeOut else None
+                    extra = None
+                    if a.subtype == AnnotationType.Caret:
+                        if a.replies and a.replies[0].subtype == AnnotationType.StrikeOut:
+                            extra = "suggested replacement"
+                        else:
+                            extra = "suggested insertion"
+                    elif a.subtype == AnnotationType.StrikeOut:
+                        extra = "suggested deletion"
+
                     yield self.format_annot(a, document, extra)
