@@ -265,6 +265,21 @@ class FreeTextAnnotation(ExtractionTestBase):
         self.assertEqual(self.annots[0].gettext(), None)
 
 
+class CaretAnnotations(ExtractionTestBase):
+    filename = 'caret.pdf'
+
+    def test(self) -> None:
+        self.assertEqual(len(self.annots), 5)
+        self.assertEqual(self.annots[1].subtype, AnnotationType.StrikeOut)
+        self.assertEqual(self.annots[1].gettext(), 'Adobe Acrobat Reader')
+        self.assertEqual(self.annots[4].subtype, AnnotationType.Caret)
+        self.assertEqual(self.annots[4].contents, 'Google Chrome')
+        self.assertEqual(self.annots[1].in_reply_to, self.annots[4])
+        self.assertEqual(self.annots[4].replies, [self.annots[1]])
+        self.assertEqual(self.annots[1].replies, [])
+        self.assertEqual(self.annots[4].in_reply_to, None)
+
+
 class PrinterTestBase(unittest.TestCase):
     filename = 'hotos17.pdf'
 
