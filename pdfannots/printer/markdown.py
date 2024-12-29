@@ -218,8 +218,8 @@ class MarkdownPrinter(Printer):
     ) -> str:
         # Limited support for Caret annotations with a single "reply" of type StrikeOut
         contents = annot.contents
-        if (annot.subtype == AnnotationType.Caret and annot.replies and
-            annot.replies[0].subtype == AnnotationType.StrikeOut):
+        if (annot.subtype == AnnotationType.Caret and annot.replies
+                and annot.replies[0].subtype == AnnotationType.StrikeOut):
             annot = annot.replies[0]
             if annot.contents:
                 logger.warning("Ignored StrikeOut comment: %s", annot.contents)

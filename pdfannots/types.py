@@ -313,7 +313,7 @@ class Annotation(ObjectWithPos):
             color: typ.Optional[RGB] = None,
             contents: typ.Optional[str] = None,
             in_reply_to_ref: typ.Optional[PDFObjRef] = None,
-            name: type.Optional[str] = None,
+            name: typ.Optional[str] = None,
             quadpoints: typ.Optional[typ.Sequence[float]] = None,
             rect: typ.Optional[BoxCoords] = None):
 
@@ -417,7 +417,7 @@ class Annotation(ObjectWithPos):
         """Update internal state once all text and context has been captured."""
         # Resole the in_reply_to object reference to its annotation
         if self._in_reply_to_ref is not None:
-            assert self.in_reply_to is None # This should be called once only
+            assert self.in_reply_to is None  # This should be called once only
             self.in_reply_to = annots_by_objid.get(self._in_reply_to_ref.objid)
             if self.in_reply_to is not None:
                 self.in_reply_to.replies.append(self)
