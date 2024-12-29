@@ -25,7 +25,8 @@ def annot_to_dict(
         "author": annot.author,
         "created": annot.created.strftime('%Y-%m-%dT%H:%M:%S') if annot.created else None,
         "color": ('#' + annot.color.ashex()) if annot.color else None,
-        "in_reply_to": annot.in_reply_to.name if annot.in_reply_to and annot.in_reply_to.name else None,
+        "in_reply_to": (annot.in_reply_to.name if annot.in_reply_to and annot.in_reply_to.name
+                        else None),
     }
 
     # Remove keys with None values in nested dictionary and return
