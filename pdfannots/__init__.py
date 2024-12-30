@@ -71,8 +71,8 @@ def _mkannotation(
         contents = cleanup_text(pdfminer.utils.decode_text(contents))
 
     rgb: typ.Optional[RGB] = None
-    color = pa.get('C')
-    if color is not None:
+    color = pdftypes.resolve1(pa.get('C'))
+    if color:
         if (isinstance(color, list)
                 and len(color) == 3
                 and all(isinstance(e, (int, float)) and 0 <= e <= 1 for e in color)):
