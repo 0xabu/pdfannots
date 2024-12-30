@@ -163,9 +163,6 @@ class Issue46(ExtractionTestBase):
 class Pr24(ExtractionTestBase):
     filename = 'pr24.pdf'
 
-    # Workaround for https://github.com/pdfminer/pdfminer.six/issues/658
-    laparams = pdfminer.layout.LAParams(boxes_flow=None)
-
     def test(self) -> None:
         EXPECTED = [
             (AnnotationType.Highlight, 'long highlight',
