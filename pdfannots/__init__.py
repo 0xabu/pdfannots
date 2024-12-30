@@ -22,7 +22,7 @@ from pdfminer import pdftypes
 import pdfminer.settings
 import pdfminer.utils
 
-from .types import Page, Outline, AnnotationType, Annotation, Document, RGB
+from .types import Page, ObjectWithPos, Outline, AnnotationType, Annotation, Document, RGB
 from .utils import cleanup_text, decode_datetime
 
 pdfminer.settings.STRICT = False
@@ -217,13 +217,30 @@ class _PDFProcessor(PDFLayoutAnalyzer):
 
         self.page = None
 
-    def update_pageseq(self, component: LTComponent) -> None:
-        """Assign sequence numbers for objects on the page based on the nearest line of text."""
+    def update_pageseq(self, component: LTComponent) -> bool:
+        """Assign sequence numbers for objects on the page based on the nearest line of text.
+        Returns True if we need to recurse on smaller sub-components (e.g. characters)."""
         assert self.page is not None
         self.compseq += 1
 
+        hits = 0
         for x in itertools.chain(self.page.annots, self.page.outlines):
-            x.update_pageseq(component, self.compseq)
+            if x.update_pageseq(component, self.compseq):
+                hits += 1
+
+        # If we have assigned the same sequence number to multiple objects, and there exist smaller
+        # sub-components (e.g. characters within a line), we'll recurse on those assigning sequence
+        # numbers to sub-components to disambiguate the hits, but first we must forget about the
+        # current sequence number.
+        # NB: This could be done more efficiently -- we really only need to disambiguate conflicts
+        # that still exist after processing *all* the line-level components on the same page, but
+        # that would require multiple rendering passes.
+        if hits > 1 and isinstance(component, LTContainer) and len(component) > 1:
+            for x in itertools.chain(self.page.annots, self.page.outlines):
+                x.discard_pageseq(self.compseq)
+            return True
+
+        return False
 
     def test_boxes(self, item: LTComponent) -> None:
         """Update the set of annotations whose boxes intersect with the area of the given item."""
@@ -288,7 +305,7 @@ class _PDFProcessor(PDFLayoutAnalyzer):
                     # Subscribe this annotation for post-context.
                     self.context_subscribers.append((self.charseq, a))
 
-    def render(self, item: LTItem) -> None:
+    def render(self, item: LTItem, pageseq_nested: bool = False) -> None:
         """
         Helper for receive_layout, called recursively for every item on a page, in layout order.
 
@@ -296,13 +313,14 @@ class _PDFProcessor(PDFLayoutAnalyzer):
         """
         # Assign sequence numbers to items on the page based on their proximity to lines of text or
         # to figures (which may contain bare LTChar elements).
-        if isinstance(item, (LTTextLine, LTFigure)):
-            self.update_pageseq(item)
+        if isinstance(item, (LTTextLine, LTFigure)) or (
+                pageseq_nested and isinstance(item, LTComponent)):
+            pageseq_nested = self.update_pageseq(item)
 
         # If it's a container, recurse on nested items.
         if isinstance(item, LTContainer):
             for child in item:
-                self.render(child)
+                self.render(child, pageseq_nested)
 
             # After the children of a text box, capture the end of the final
             # line (logic derived from pdfminer.converter.TextConverter).
