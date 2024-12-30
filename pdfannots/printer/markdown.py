@@ -198,8 +198,8 @@ class MarkdownPrinter(Printer):
 
         return ret
 
-    def merge_strikeout_context(self, annot: Annotation, text: str) -> str:
-        """Merge the context for a strikeout annotation into the text."""
+    def merge_context(self, annot: Annotation, text: str) -> str:
+        """Merge the context for a strikeout or caret annotation into the text."""
         (pre, post) = annot.get_context(self.remove_hyphens)
 
         if pre:
@@ -208,7 +208,12 @@ class MarkdownPrinter(Printer):
         if post:
             post = trim_context(post, keep_right=False)
 
-        return pre + '~~' + text + '~~' + post
+        if annot.subtype == AnnotationType.StrikeOut:
+            return pre + '~~' + text + '~~' + post
+        else:
+            assert annot.subtype == AnnotationType.Caret
+            assert text.isspace()
+            return pre.rstrip(' ') + ' ^ ' + post.lstrip(' ')
 
     def format_annot(
         self,
@@ -229,8 +234,7 @@ class MarkdownPrinter(Printer):
         comment = [l for l in contents.splitlines() if l] if contents else []
 
         if annot.has_context():
-            assert annot.subtype == AnnotationType.StrikeOut
-            text = self.merge_strikeout_context(annot, text)
+            text = self.merge_context(annot, text)
 
         # we are either printing: item text and item contents, or one of the two
         # if we see an annotation with neither, something has gone wrong
