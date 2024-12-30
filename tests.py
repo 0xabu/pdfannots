@@ -173,8 +173,8 @@ class Pr24(ExtractionTestBase):
             (AnnotationType.Highlight, 'short highlight', 'not working'),
             (AnnotationType.Text, None, None),
             (AnnotationType.Highlight, None, 'Some more text'),
-            (AnnotationType.Text, 's', None),
-            (AnnotationType.Text, 'dual\n\npara note', None)]
+            (AnnotationType.Text, 'dual\n\npara note', None),
+            (AnnotationType.Text, 's', None)]
         self.assertEqual(len(self.annots), len(EXPECTED))
         for a, expected in zip(self.annots, EXPECTED):
             self.assertEqual((a.subtype, a.contents, a.gettext()), expected)
@@ -270,14 +270,14 @@ class CaretAnnotations(ExtractionTestBase):
 
     def test(self) -> None:
         self.assertEqual(len(self.annots), 5)
-        self.assertEqual(self.annots[1].subtype, AnnotationType.StrikeOut)
-        self.assertEqual(self.annots[1].gettext(), 'Adobe Acrobat Reader')
-        self.assertEqual(self.annots[4].subtype, AnnotationType.Caret)
-        self.assertEqual(self.annots[4].contents, 'Google Chrome')
-        self.assertEqual(self.annots[1].in_reply_to, self.annots[4])
-        self.assertEqual(self.annots[4].replies, [self.annots[1]])
-        self.assertEqual(self.annots[1].replies, [])
-        self.assertEqual(self.annots[4].in_reply_to, None)
+        self.assertEqual(self.annots[0].subtype, AnnotationType.StrikeOut)
+        self.assertEqual(self.annots[0].gettext(), 'Adobe Acrobat Reader')
+        self.assertEqual(self.annots[3].subtype, AnnotationType.Caret)
+        self.assertEqual(self.annots[3].contents, 'Google Chrome')
+        self.assertEqual(self.annots[0].in_reply_to, self.annots[3])
+        self.assertEqual(self.annots[3].replies, [self.annots[0]])
+        self.assertEqual(self.annots[0].replies, [])
+        self.assertEqual(self.annots[3].in_reply_to, None)
 
 
 class PrinterTestBase(unittest.TestCase):

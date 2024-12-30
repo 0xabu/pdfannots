@@ -59,6 +59,10 @@ class Box:
         """Return the height of the box."""
         return self.y1 - self.y0
 
+    def get_area(self) -> float:
+        """Return the area of the box."""
+        return self.get_height() * self.get_width()
+
     def get_overlap(self, other: Box) -> float:
         """Compute the overlapping area (if any) with the provided box."""
         x_overlap = max(0, min(other.x1, self.x1) - max(other.x0, self.x0))
@@ -218,18 +222,27 @@ class Pos:
                 and self.y >= item.y0
                 and self.y <= item.y1)
 
-    def update_pageseq(self, component: LTComponent, pageseq: int) -> None:
-        """If close-enough to the given component, adopt its sequence number."""
+    def update_pageseq(self, component: LTComponent, pageseq: int) -> bool:
+        """If close-enough to the given component, adopt its sequence number and return True."""
         assert pageseq > 0
         if self.item_hit(component):
             # This pos is inside the component area
             self._pageseq = pageseq
             self._pageseq_distance = 0
+            return True
         else:
             d = Box.from_item(component).square_of_distance_to_closest_point((self.x, self.y))
             if self._pageseq == 0 or self._pageseq_distance > d:
                 self._pageseq = pageseq
                 self._pageseq_distance = d
+                return True
+            return False
+
+    def discard_pageseq(self, pageseq: int) -> None:
+        """If we have been assigned the specified pageseq, forget about it."""
+        if self._pageseq == pageseq:
+            self._pageseq = 0
+            self._pageseq_distance = 0.0
 
 
 @functools.total_ordering
@@ -246,10 +259,14 @@ class ObjectWithPos:
             return self.pos < other.pos
         return NotImplemented
 
-    def update_pageseq(self, component: LTComponent, pageseq: int) -> None:
+    def update_pageseq(self, component: LTComponent, pageseq: int) -> bool:
         """Delegates to Pos.update_pageseq"""
+        return False if self.pos is None else self.pos.update_pageseq(component, pageseq)
+
+    def discard_pageseq(self, pageseq: int) -> None:
+        """Delegates to Pos.discard_pageseq"""
         if self.pos is not None:
-            self.pos.update_pageseq(component, pageseq)
+            self.pos.discard_pageseq(pageseq)
 
 
 class AnnotationType(enum.Enum):
