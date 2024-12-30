@@ -22,7 +22,7 @@ from pdfminer import pdftypes
 import pdfminer.settings
 import pdfminer.utils
 
-from .types import Page, ObjectWithPos, Outline, AnnotationType, Annotation, Document, RGB
+from .types import Page, Outline, AnnotationType, Annotation, Document, RGB
 from .utils import cleanup_text, decode_datetime
 
 pdfminer.settings.STRICT = False
