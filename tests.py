@@ -160,6 +160,17 @@ class Issue46(ExtractionTestBase):
         self.assertEqual(self.annots[2].gettext(), 'This was a novel idea at the time')
 
 
+class Issue61(ExtractionTestBase):
+    filename = 'issue61.pdf'
+
+    def test(self) -> None:
+        self.assertEqual(len(self.annots), 1)
+        a = self.annots[0]
+        self.assertEqual(a.subtype, AnnotationType.Caret)
+        self.assertEqual(a.contents, 'and machine learning')
+        self.assertTrue(a.has_context())
+
+
 class Pr24(ExtractionTestBase):
     filename = 'pr24.pdf'
 

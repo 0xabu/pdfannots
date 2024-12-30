@@ -346,6 +346,11 @@ class Annotation(ObjectWithPos):
                 box = Box(min(xvals), min(yvals), max(xvals), max(yvals))
                 boxes.append(box)
 
+        # Kludge for Caret annotations that lack quadpoints, but need to capture context
+        if quadpoints is None and subtype == AnnotationType.Caret:
+            assert rect is not None
+            boxes.append(Box.from_coords(rect))
+
         # Compute a meaningful position of this annotation on the page
         assert rect or boxes
         (x0, y0, x1, y1) = rect if rect else boxes[0].get_coords()
@@ -399,7 +404,7 @@ class Annotation(ObjectWithPos):
 
     def wants_context(self) -> bool:
         """Returns true if this annotation type should include context."""
-        return self.subtype == AnnotationType.StrikeOut
+        return self.subtype in {AnnotationType.Caret, AnnotationType.StrikeOut}
 
     def set_pre_context(self, pre_context: str) -> None:
         assert self.pre_context is None

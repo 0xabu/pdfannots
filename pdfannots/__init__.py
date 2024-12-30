@@ -290,9 +290,14 @@ class _PDFProcessor(PDFLayoutAnalyzer):
                         assert last_charseq != 0
                         i = bisect.bisect_left(self.context_subscribers, (last_charseq,))
                         assert 0 <= i < len(self.context_subscribers)
-                        (found_charseq, found_annot) = self.context_subscribers.pop(i)
-                        assert found_charseq == last_charseq
-                        assert found_annot is a
+                        while True:
+                            (found_charseq, found_annot) = self.context_subscribers[i]
+                            assert found_charseq == last_charseq
+                            if found_annot is a:
+                                self.context_subscribers.pop(i)
+                                break
+                            i += 1
+                            assert i < len(self.context_subscribers)
 
                     else:
                         # This is the first hit for the annotation, so set the pre-context.
