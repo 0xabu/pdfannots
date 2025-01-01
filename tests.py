@@ -278,14 +278,17 @@ class CaretAnnotations(ExtractionTestBase):
 
     def test(self) -> None:
         self.assertEqual(len(self.annots), 5)
-        self.assertEqual(self.annots[0].subtype, AnnotationType.StrikeOut)
-        self.assertEqual(self.annots[0].gettext(), 'Adobe Acrobat Reader')
-        self.assertEqual(self.annots[3].subtype, AnnotationType.Caret)
-        self.assertEqual(self.annots[3].contents, 'Google Chrome')
-        self.assertEqual(self.annots[0].in_reply_to, self.annots[3])
-        self.assertEqual(self.annots[3].replies, [self.annots[0]])
-        self.assertEqual(self.annots[0].replies, [])
-        self.assertEqual(self.annots[3].in_reply_to, None)
+        a = self.annots[0]
+        self.assertEqual(a.subtype, AnnotationType.StrikeOut)
+        self.assertEqual(a.gettext(), 'Adobe Acrobat Reader')
+        self.assertTrue(a.is_group_child)
+        self.assertEqual(a.group_children, [])
+        g = self.annots[3]
+        self.assertEqual(g.subtype, AnnotationType.Caret)
+        self.assertEqual(g.contents, 'Google Chrome')
+        self.assertFalse(g.is_group_child)
+        self.assertEqual(g.group_children, [a])
+        self.assertEqual(g.get_child_by_type(AnnotationType.StrikeOut), a)
 
 
 class PrinterTestBase(unittest.TestCase):

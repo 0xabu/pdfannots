@@ -223,11 +223,12 @@ class MarkdownPrinter(Printer):
     ) -> str:
         # Limited support for Caret annotations with a single "reply" of type StrikeOut
         contents = annot.contents
-        if (annot.subtype == AnnotationType.Caret and annot.replies
-                and annot.replies[0].subtype == AnnotationType.StrikeOut):
-            annot = annot.replies[0]
-            if annot.contents:
-                logger.warning("Ignored StrikeOut comment: %s", annot.contents)
+        if annot.subtype == AnnotationType.Caret and annot.group_children:
+            child = annot.get_child_by_type(AnnotationType.StrikeOut)
+            if child:
+                annot = child
+                if child.contents:
+                    logger.warning("Ignored StrikeOut comment: %s", child.contents)
 
         # capture item text and contents (i.e. the comment), and split the latter into paragraphs
         text = annot.gettext(self.remove_hyphens) or ''
@@ -280,7 +281,7 @@ class MarkdownPrinter(Printer):
         self,
         document: Document
     ) -> typ.Iterator[str]:
-        for a in document.iter_annots(include_replies=False):
+        for a in document.iter_annots():
             yield self.format_annot(a, document, a.subtype.name)
 
 
@@ -331,7 +332,7 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
         highlights: typ.List[Annotation] = []  # When grouping by color holds only undefined annots
         highlights_by_color: typ.DefaultDict[RGB, typ.List[Annotation]] = defaultdict(list)
 
-        for a in document.iter_annots(include_replies=False):
+        for a in document.iter_annots():
             if a.subtype in self.ANNOT_NITS:
                 nits.append(a)
             elif a.contents:
@@ -367,7 +368,7 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
                 for a in nits:
                     extra = None
                     if a.subtype == AnnotationType.Caret:
-                        if a.replies and a.replies[0].subtype == AnnotationType.StrikeOut:
+                        if a.get_child_by_type(AnnotationType.StrikeOut):
                             extra = "suggested replacement"
                         else:
                             extra = "suggested insertion"
