@@ -25,8 +25,7 @@ def annot_to_dict(
         "author": annot.author,
         "created": annot.created.strftime('%Y-%m-%dT%H:%M:%S') if annot.created else None,
         "color": ('#' + annot.color.ashex()) if annot.color else None,
-        "in_reply_to": (annot.in_reply_to.name if annot.in_reply_to and annot.in_reply_to.name
-                        else None),
+        "in_reply_to": annot.in_reply_to.name if annot.in_reply_to else None,
     }
 
     # Remove keys with None values in nested dictionary and return
@@ -62,5 +61,6 @@ class JsonPrinter(Printer):
         else:
             self.seen_first = True
 
-        annots = [annot_to_dict(document, a, self.remove_hyphens) for a in document.iter_annots()]
+        annots = [annot_to_dict(document, a, self.remove_hyphens)
+                  for a in document.iter_annots(include_replies=True)]
         yield from json.JSONEncoder(indent=2, ensure_ascii=self.ensure_ascii).iterencode(annots)

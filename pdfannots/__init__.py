@@ -106,9 +106,18 @@ def _mkannotation(
         createds = pdfminer.utils.decode_text(createds)
         created = decode_datetime(createds)
 
+    in_reply_to = pa.get('IRT')
+    is_group = False
+    if in_reply_to is not None:
+        reply_type = pa.get('RT')
+        if reply_type is PSLiteralTable.intern('Group'):
+            is_group = True
+        elif not (reply_type is None or reply_type is PSLiteralTable.intern('R')):
+            logger.warning("Unexpected RT=%s, treated as R", reply_type)
+
     return Annotation(page, annot_type, quadpoints=quadpoints, rect=rect, name=name,
                       contents=contents, author=author, created=created, color=rgb,
-                      in_reply_to_ref=pa.get('IRT'))
+                      in_reply_to_ref=in_reply_to, is_group_child=is_group)
 
 
 def _get_outlines(doc: PDFDocument) -> typ.Iterator[Outline]:

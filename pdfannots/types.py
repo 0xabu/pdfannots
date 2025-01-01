@@ -296,16 +296,18 @@ class Annotation(ObjectWithPos):
     A PDF annotation, and its extracted text.
 
     Attributes:
-        author       Author of the annotation
-        color        RGB color of the annotation
-        contents     Contents of the annotation in the PDF (e.g. comment/description)
-        created      Timestamp the annotation was created
-        in_reply_to  Reference to another annotation on the page that this is "in reply to"
-        last_charseq Sequence number of the most recent character in text
-        name         If present, uniquely identifies this annotation among others on the page
-        replies      Annotations replying to this one (reverse of in_reply_to)
-        subtype      PDF annotation type
-        text         Text in the order captured (use gettext() for a cleaner form)
+        author          Author of the annotation
+        color           RGB color of the annotation
+        contents        Contents of the annotation in the PDF (e.g. comment/description)
+        created         Timestamp the annotation was created
+        group_children  Annotations grouped together with this one
+        in_reply_to     Reference to another annotation on the page that this is "in reply to"
+        is_group_child  Is this annotation a member of a parent group?
+        last_charseq    Sequence number of the most recent character in text
+        name            If present, uniquely identifies this annotation among others on the page
+        replies         Annotations replying to this one (reverse of in_reply_to)
+        subtype         PDF annotation type
+        text            Text in the order captured (use gettext() for a cleaner form)
 
     Attributes updated for StrikeOut and Caret annotations:
         pre_context  Text captured just prior to the beginning of 'text'
@@ -314,6 +316,7 @@ class Annotation(ObjectWithPos):
 
     boxes: typ.List[Box]
     contents: typ.Optional[str]
+    group_children: typ.List[Annotation]
     in_reply_to: typ.Optional[Annotation]
     pre_context: typ.Optional[str]
     post_context: typ.Optional[str]
@@ -330,6 +333,7 @@ class Annotation(ObjectWithPos):
             color: typ.Optional[RGB] = None,
             contents: typ.Optional[str] = None,
             in_reply_to_ref: typ.Optional[PDFObjRef] = None,
+            is_group_child: bool = False,
             name: typ.Optional[str] = None,
             quadpoints: typ.Optional[typ.Sequence[float]] = None,
             rect: typ.Optional[BoxCoords] = None):
@@ -364,6 +368,7 @@ class Annotation(ObjectWithPos):
         self.color = color
         self.contents = contents if contents else None
         self.created = created
+        self.group_children = []
         self.name = name
         self.last_charseq = 0
         self.post_context = None
@@ -373,8 +378,11 @@ class Annotation(ObjectWithPos):
         self.text = []
 
         # The in_reply_to reference will be resolved in postprocess()
-        self._in_reply_to_ref = in_reply_to_ref
         self.in_reply_to = None
+        self._in_reply_to_ref = in_reply_to_ref
+        self.is_group_child = is_group_child
+        if is_group_child:
+            assert in_reply_to_ref
 
     def __repr__(self) -> str:
         return ('<Annotation %s %r%s%s>' %
@@ -401,6 +409,13 @@ class Annotation(ObjectWithPos):
                 return ""
         else:
             return None
+
+    def get_child_by_type(self, child_type: AnnotationType) -> typ.Optional[Annotation]:
+        """Return the first child of the given type."""
+        for c in self.group_children:
+            if c.subtype == child_type:
+                return c
+        return None
 
     def wants_context(self) -> bool:
         """Returns true if this annotation type should include context."""
@@ -440,9 +455,15 @@ class Annotation(ObjectWithPos):
         # Resole the in_reply_to object reference to its annotation
         if self._in_reply_to_ref is not None:
             assert self.in_reply_to is None  # This should be called once only
-            self.in_reply_to = annots_by_objid.get(self._in_reply_to_ref.objid)
-            if self.in_reply_to is not None:
-                self.in_reply_to.replies.append(self)
+            a = annots_by_objid.get(self._in_reply_to_ref.objid)
+            if a is None:
+                logger.warning("IRT reference (%d) not found in page annotations",
+                               self._in_reply_to_ref.objid)
+            elif self.is_group_child:
+                a.group_children.append(self)
+            else:
+                self.in_reply_to = a
+                a.replies.append(self)
 
         # The Skim PDF reader (https://skim-app.sourceforge.io/) creates annotations whose
         # default initial contents are a copy of the selected text. Unless the user goes to
@@ -514,11 +535,17 @@ class Document:
     def __init__(self) -> None:
         self.pages = []
 
-    def iter_annots(self, *, include_replies: bool = True) -> typ.Iterator[Annotation]:
-        """Iterate over all the annotations in the document."""
+    def iter_annots(self, *, include_replies: bool = False) -> typ.Iterator[Annotation]:
+        """
+        Iterate over all the annotations in the document.
+
+        Only the primary annotation for a group is included.
+        Replies are included only if include_replies is True.
+        """
+
         for p in self.pages:
             for a in p.annots:
-                if include_replies or not a.in_reply_to:
+                if not a.is_group_child and (include_replies or not a.in_reply_to):
                     yield a
 
     def nearest_outline(
