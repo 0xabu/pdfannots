@@ -398,11 +398,17 @@ def process_file(
 
     # Iterate over all the pages, constructing page objects.
     result = Document()
-    for pdfpage in doc.pages:
+    # PLAYA will make up page labels if they don't exist (this is
+    # arguably a bug in PLAYA) so use the explicit ones only.
+    try:
+        page_labels = doc.page_labels
+    except (KeyError, ValueError):
+        page_labels = itertools.repeat(None)
+    for pdfpage, page_label in zip(doc.pages, page_labels):
         pageno = pdfpage.page_idx
         emit_progress(" %d" % (pageno + 1))
 
-        page = Page(pageno, pdfpage.pageid, pdfpage.label, pdfpage.mediabox, columns_per_page)
+        page = Page(pageno, pdfpage.pageid, page_label, pdfpage.mediabox, columns_per_page)
         result.pages.append(page)
 
         # Resolve any outlines referring to this page, and link them to the page.

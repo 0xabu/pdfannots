@@ -320,7 +320,6 @@ class MarkdownPrinterTest(PrinterTestBase):
 
         page_numbers = []
         for line in p.print_file('dummyfile', self.doc):
-            print(line)
             m = re.match(r'.+Page #([0-9])', line)
             if m:
                 page_numbers.append(m[1])
