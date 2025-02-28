@@ -10,9 +10,9 @@ import itertools
 import logging
 import typing as typ
 
-from playa import pdftypes, Document as PDFDocument
 from playa.utils import decode_text
-from paves.miner import (extract_page, PDFObjRef, PSLiteral, LIT,
+from paves.miner import (extract_page, pdftypes, PDFDocument, PDFObjRef,
+                         PSLiteral, LIT,
                          LAParams, LTAnno, LTChar, LTComponent,
                          LTContainer, LTFigure, LTItem,
                          LTPage, LTTextBox, LTTextLine)
@@ -118,7 +118,7 @@ def _get_outlines(doc: PDFDocument) -> typ.Iterator[Outline]:
 
     # TODO: use PLAYA 0.3 Destinations API or move get_dests to PAVÉS
     dests = {k: v for k, v in doc.dests}
-    
+
     def _resolve_dest(dest: typ.Any) -> typ.Any:
         if isinstance(dest, PDFObjRef):
             dest = pdftypes.resolve1(dest)
