@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "pdfannots"
 dynamic = ["version"]
 requires-python = ">=3.8"
-dependencies = ["paves", "playa-pdf>=0.3.0"]
+dependencies = ["paves", "playa-pdf>=0.3.1"]
 description = "Tool to extract and pretty-print PDF annotations for reviewing"
 readme = "README.md"
 license = {file = "LICENSE.txt"}

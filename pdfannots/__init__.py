@@ -116,7 +116,7 @@ def _mkannotation(
 def _get_outlines(doc: PDFDocument) -> typ.Iterator[Outline]:
     """Retrieve a list of (unresolved) Outline objects for all recognised outlines in the PDF."""
 
-    # TODO: use PLAYA 0.3 Destinations API
+    # TODO: use PLAYA 0.3 Destinations API or move get_dests to PAVÉS
     dests = {k: v for k, v in doc.dests}
     
     def _resolve_dest(dest: typ.Any) -> typ.Any:
@@ -130,6 +130,7 @@ def _get_outlines(doc: PDFDocument) -> typ.Iterator[Outline]:
             dest = dest['D']
         return dest
 
+    # TODO: use PLAYA 0.3 Outline API or move outlines to PAVÉS
     for (_, title, destname, actionref, _) in doc.outlines:
         if destname is None and actionref:
             action = pdftypes.resolve1(actionref)
@@ -398,15 +399,12 @@ def process_file(
 
     # Iterate over all the pages, constructing page objects.
     result = Document()
-    # PLAYA will make up page labels if they don't exist (this is
-    # arguably a bug in PLAYA) so use the explicit ones only.
-    try:
-        page_labels = doc.page_labels
-    except (KeyError, ValueError):
-        page_labels = itertools.repeat(None)
-    for pdfpage, page_label in zip(doc.pages, page_labels):
+    for pdfpage in doc.pages:
         pageno = pdfpage.page_idx
         emit_progress(" %d" % (pageno + 1))
+        # PLAYA will make up page labels if they don't exist (this is
+        # arguably a bug in PLAYA) so use the explicit ones only.
+        page_label = pdfpage.label if doc.pages.have_labels else None
 
         page = Page(pageno, pdfpage.pageid, page_label, pdfpage.mediabox, columns_per_page)
         result.pages.append(page)
