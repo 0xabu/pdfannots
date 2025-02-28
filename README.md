@@ -51,12 +51,13 @@ options and invocation.
 ### Dependencies
 
  * Python >= 3.8
- * [pdfminer.six](https://github.com/pdfminer/pdfminer.six)
+ * [PLAYA](https://github.com/dhdaines/playa)
+ * [PAVÉS](https://github.com/dhdaines/paves)
 
 
 ### Known issues and limitations
 
- * While it is generally reliable, pdfminer (the underlying PDF parser) is
+ * While it is generally reliable, PLAYA (the underlying PDF parser) is
    not infallible at extracting text from a PDF. It has been known to fail
    in several different ways:
 
