@@ -9,7 +9,7 @@ import typing as typ
 import unittest
 from datetime import datetime, timedelta, timezone
 
-import pdfminer.layout
+from paves.miner import LAParams
 
 import pdfannots
 import pdfannots.utils
@@ -38,7 +38,7 @@ class ExtractionTestBase(unittest.TestCase):
 
     # Permit a test to customise the columns_per_page or LAParams
     columns_per_page: typ.Optional[int] = None
-    laparams = pdfminer.layout.LAParams()
+    laparams = LAParams()
 
     def setUp(self) -> None:
         path = pathlib.Path(__file__).parent / 'tests' / self.filename
@@ -320,6 +320,7 @@ class MarkdownPrinterTest(PrinterTestBase):
 
         page_numbers = []
         for line in p.print_file('dummyfile', self.doc):
+            print(line)
             m = re.match(r'.+Page #([0-9])', line)
             if m:
                 page_numbers.append(m[1])

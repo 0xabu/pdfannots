@@ -10,31 +10,24 @@ import itertools
 import logging
 import typing as typ
 
-from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
-from pdfminer.pdfpage import PDFPage
-from pdfminer.layout import (LAParams, LTAnno, LTChar, LTComponent, LTContainer, LTFigure, LTItem,
-                             LTPage, LTTextBox, LTTextLine)
-from pdfminer.converter import PDFLayoutAnalyzer
-from pdfminer.pdfparser import PDFParser
-from pdfminer.pdfdocument import PDFDocument, PDFNoOutlines
-from pdfminer.psparser import PSLiteralTable, PSLiteral
-from pdfminer import pdftypes
-import pdfminer.settings
-import pdfminer.utils
+from playa import pdftypes, Document as PDFDocument
+from playa.utils import decode_text
+from paves.miner import (extract_page, PDFObjRef, PSLiteral, LIT,
+                         LAParams, LTAnno, LTChar, LTComponent,
+                         LTContainer, LTFigure, LTItem,
+                         LTPage, LTTextBox, LTTextLine)
 
 from .types import Page, Outline, AnnotationType, Annotation, Document, RGB
 from .utils import cleanup_text, decode_datetime
 
-pdfminer.settings.STRICT = False
-
 logger = logging.getLogger('pdfannots')
 
 ANNOT_SUBTYPES: typ.Dict[PSLiteral, AnnotationType] = {
-    PSLiteralTable.intern(e.name): e for e in AnnotationType}
+    LIT(e.name): e for e in AnnotationType}
 """Mapping from PSliteral to our own enumerant, for supported annotation types."""
 
 IGNORED_ANNOT_SUBTYPES = \
-    frozenset(PSLiteralTable.intern(n) for n in (
+    frozenset(LIT(n) for n in (
         'Link',   # Links are used for internal document links (e.g. to other pages).
         'Popup',  # Controls the on-screen appearance of other annotations. TODO: we may want to
                   # check for an optional 'Contents' field for alternative human-readable contents.
@@ -68,7 +61,7 @@ def _mkannotation(
     contents = pa.get('Contents')
     if contents is not None:
         # decode as string, normalise line endings, replace special characters
-        contents = cleanup_text(pdfminer.utils.decode_text(contents))
+        contents = cleanup_text(decode_text(contents))
 
     rgb: typ.Optional[RGB] = None
     color = pdftypes.resolve1(pa.get('C'))
@@ -89,11 +82,11 @@ def _mkannotation(
 
     author = pdftypes.resolve1(pa.get('T'))
     if author is not None:
-        author = pdfminer.utils.decode_text(author)
+        author = decode_text(author)
 
     name = pdftypes.resolve1(pa.get('NM'))
     if name is not None:
-        name = pdfminer.utils.decode_text(name)
+        name = decode_text(name)
 
     created = None
     dobj = pa.get('CreationDate')
@@ -103,16 +96,16 @@ def _mkannotation(
     dobj = dobj or pa.get('M')
     createds = pdftypes.resolve1(dobj)
     if createds is not None:
-        createds = pdfminer.utils.decode_text(createds)
+        createds = decode_text(createds)
         created = decode_datetime(createds)
 
     in_reply_to = pa.get('IRT')
     is_group = False
     if in_reply_to is not None:
         reply_type = pa.get('RT')
-        if reply_type is PSLiteralTable.intern('Group'):
+        if reply_type is LIT('Group'):
             is_group = True
-        elif not (reply_type is None or reply_type is PSLiteralTable.intern('R')):
+        elif not (reply_type is None or reply_type is LIT('R')):
             logger.warning("Unexpected RT=%s, treated as R", reply_type)
 
     return Annotation(page, annot_type, quadpoints=quadpoints, rect=rect, name=name,
@@ -123,33 +116,36 @@ def _mkannotation(
 def _get_outlines(doc: PDFDocument) -> typ.Iterator[Outline]:
     """Retrieve a list of (unresolved) Outline objects for all recognised outlines in the PDF."""
 
+    # TODO: use PLAYA 0.3 Destinations API
+    dests = {k: v for k, v in doc.dests}
+    
     def _resolve_dest(dest: typ.Any) -> typ.Any:
-        if isinstance(dest, pdftypes.PDFObjRef):
+        if isinstance(dest, PDFObjRef):
             dest = pdftypes.resolve1(dest)
         if isinstance(dest, bytes):
-            dest = pdftypes.resolve1(doc.get_dest(dest))
+            dest = pdftypes.resolve1(dests[decode_text(dest)])
         elif isinstance(dest, PSLiteral):
-            dest = pdftypes.resolve1(doc.get_dest(dest.name))
+            dest = pdftypes.resolve1(dests[dest.name])
         if isinstance(dest, dict):
             dest = dest['D']
         return dest
 
-    for (_, title, destname, actionref, _) in doc.get_outlines():
+    for (_, title, destname, actionref, _) in doc.outlines:
         if destname is None and actionref:
             action = pdftypes.resolve1(actionref)
             if isinstance(action, dict):
                 subtype = action.get('S')
-                if subtype is PSLiteralTable.intern('GoTo'):
+                if subtype is LIT('GoTo'):
                     destname = action.get('D')
         if destname is None:
             continue
         dest = _resolve_dest(destname)
 
         # consider targets of the form [page /XYZ left top zoom]
-        if dest[1] is PSLiteralTable.intern('XYZ'):
+        if dest[1] is LIT('XYZ'):
             (pageref, _, targetx, targety) = dest[:4]
 
-            if not isinstance(pageref, (int, pdftypes.PDFObjRef)):
+            if not isinstance(pageref, (int, PDFObjRef)):
                 logger.warning("Unsupported pageref in outline: %s", pageref)
             else:
                 if targetx is None or targety is None:
@@ -164,7 +160,7 @@ def _get_outlines(doc: PDFDocument) -> typ.Iterator[Outline]:
                 yield Outline(title, pageref, target)
 
 
-class _PDFProcessor(PDFLayoutAnalyzer):
+class _PDFProcessor:
     """
     PDF processor class.
 
@@ -188,8 +184,7 @@ class _PDFProcessor(PDFLayoutAnalyzer):
     # the sequence number of the last character to hit the annotation.
     context_subscribers: typ.List[typ.Tuple[int, Annotation]]
 
-    def __init__(self, rsrcmgr: PDFResourceManager, laparams: LAParams):
-        super().__init__(rsrcmgr, laparams=laparams)
+    def __init__(self):
         self.page = None
         self.recent_text = collections.deque(maxlen=self.CONTEXT_CHARS)
         self.context_subscribers = []
@@ -373,11 +368,8 @@ def process_file(
     """
 
     # Initialise PDFMiner state
-    rsrcmgr = PDFResourceManager()
-    device = _PDFProcessor(rsrcmgr, laparams)
-    interpreter = PDFPageInterpreter(rsrcmgr, device)
-    parser = PDFParser(file)
-    doc = PDFDocument(parser)
+    doc = PDFDocument(file, space="page")
+    device = _PDFProcessor()
 
     def emit_progress(msg: str) -> None:
         if emit_progress_to is not None:
@@ -395,18 +387,19 @@ def process_file(
 
     try:
         for o in _get_outlines(doc):
-            if isinstance(o.pageref, pdftypes.PDFObjRef):
+            if isinstance(o.pageref, PDFObjRef):
                 outlines_by_objid[o.pageref.objid].append(o)
             else:
                 outlines_by_pageno[o.pageref].append(o)
-    except PDFNoOutlines:
+    except KeyError:
         logger.info("Document doesn't include outlines (\"bookmarks\")")
     except Exception as ex:
         logger.warning("Failed to retrieve outlines: %s", ex)
 
     # Iterate over all the pages, constructing page objects.
     result = Document()
-    for (pageno, pdfpage) in enumerate(PDFPage.create_pages(doc)):
+    for pdfpage in doc.pages:
+        pageno = pdfpage.page_idx
         emit_progress(" %d" % (pageno + 1))
 
         page = Page(pageno, pdfpage.pageid, pdfpage.label, pdfpage.mediabox, columns_per_page)
@@ -425,7 +418,7 @@ def process_file(
 
         # Construct Annotation objects, and append them to the page.
         for pa in pdftypes.resolve1(pdfpage.annots) if pdfpage.annots else []:
-            if isinstance(pa, pdftypes.PDFObjRef):
+            if isinstance(pa, PDFObjRef):
                 annot_dict = pdftypes.dict_value(pa)
                 if annot_dict:  # Would be empty if pa is a broken ref
                     annot = _mkannotation(annot_dict, page)
@@ -443,8 +436,9 @@ def process_file(
         # Render the page. This captures the selected text for any annotations
         # on the page, and updates annotations and outlines with a logical
         # sequence number based on the order of text lines on the page.
+        layout = extract_page(pdfpage, laparams)
         device.set_page(page)
-        interpreter.process_page(pdfpage)
+        device.receive_layout(layout)
 
         # Now we have their logical order, sort the annotations and outlines.
         page.annots.sort()
@@ -455,8 +449,6 @@ def process_file(
             a.postprocess(annots_by_objid)
 
     emit_progress("\n")
-
-    device.close()
 
     # all outlines should be resolved by now
     assert {} == outlines_by_pageno

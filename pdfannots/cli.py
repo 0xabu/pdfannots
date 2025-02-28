@@ -3,7 +3,7 @@ import logging
 import sys
 import typing as typ
 
-from pdfminer.layout import LAParams
+from paves.miner import LAParams
 
 from . import __doc__, __version__, process_file
 from .printer import Printer
