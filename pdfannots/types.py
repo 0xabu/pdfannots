@@ -580,7 +580,7 @@ class RGB(typ.NamedTuple):
         return red_hex + green_hex + blue_hex
    
     def name(self) -> str:
-        high = 200, low = 100
+        high, low = 200, 100
 
         if self.red > max(self.green, self.blue) * 1.5:                                             # Red is dominant
             return "Red"
