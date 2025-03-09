@@ -582,14 +582,14 @@ class RGB(typ.NamedTuple):
     def name(self) -> str:
         high, low = 200, 100
 
-        if self.red > max(self.green, self.blue) * 1.5:                                             # Red is dominant
+        if self.red > max(self.green, self.blue) * 1.5:                                             # Red is dominant (green/blue < 170)
             return "Red"
-        elif self.green > max(self.red, self.blue) * 1.5:                                           # Green is dominant 
+        elif self.green > max(self.red, self.blue) * 1.5:                                           # Green is dominant (red/blue < 170)
             return "Green"
-        elif self.blue > max(self.red, self.green) * 1.5:                                           # Blue is dominant
+        elif self.blue > max(self.red, self.green) * 1.5:                                           # Blue is dominant (red/blue < 170)
             return "Blue"
         # Check for yellow (red and green mix)
-        elif self.red > high/255 and self.green > high/255 and self.blue < low/255:                 # Red and Green dominate
+        elif self.red > high/255 and self.green > high/255 and self.blue < low/255:                 # Red and Green dominate 
             return "Yellow"
         # Check for purple (red and blue)
         elif self.red > low/255 and self.blue > low/255 and self.green < min(self.red, self.blue):  # Red and Blue dominate
@@ -606,7 +606,7 @@ class RGB(typ.NamedTuple):
                 return "Red"                                                                        # Checked for yellow in 3rd above elif
         elif self.green == max_value:
             return "Green"
-        else:
+        else:                                                                                       # Blue is highest value
             if self.red > self.green:
                 return "Purple"
             else:
