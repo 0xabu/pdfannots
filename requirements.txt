@@ -1,4 +1,5 @@
-# pip requirements for pdfannots
+# dev/test requirements for pdfannots
 # Use as: pip3 install -r requirements.txt
 
-pdfminer.six == 20231228
+paves == 0.4.0
+playa-pdf == 0.3.1
