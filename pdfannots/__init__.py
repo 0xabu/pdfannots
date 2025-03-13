@@ -173,7 +173,6 @@ class _PDFProcessor:
     CONTEXT_CHARS = 256
     """Maximum number of recent characters to keep as context."""
 
-    page: typ.Optional[Page]                # Page being processed.
     charseq: int                            # Character sequence number within the page.
     compseq: int                            # Component sequence number within the page.
     recent_text: typ.Deque[str]             # Rotating buffer of recent text, for context.
@@ -186,7 +185,6 @@ class _PDFProcessor:
     context_subscribers: typ.List[typ.Tuple[int, Annotation]]
 
     def __init__(self):
-        self.page = None
         self.recent_text = collections.deque(maxlen=self.CONTEXT_CHARS)
         self.context_subscribers = []
         self.clear()
@@ -200,36 +198,26 @@ class _PDFProcessor:
         self._lasthit = frozenset()
         self._curline = set()
 
-    def set_page(self, page: Page) -> None:
-        """Prepare to process a new page. Must be called prior to processing."""
-        assert self.page is None
-        self.page = page
-
-    def receive_layout(self, ltpage: LTPage) -> None:
-        """Callback from PDFLayoutAnalyzer superclass. Called once with each laid-out page."""
-        assert self.page is not None
-
+    def process_page(self, page: Page, ltpage: LTPage) -> None:
+        """Called once with each laid-out page."""
         # Re-initialise our per-page state
         self.clear()
 
         # Render all the items on the page
-        self.render(ltpage)
+        self.render(page, ltpage)
 
         # If we still have annotations needing context, give them whatever we have
         for (charseq, annot) in self.context_subscribers:
             available = self.charseq - charseq
             annot.post_context = ''.join(self.recent_text[n] for n in range(-available, 0))
 
-        self.page = None
-
-    def update_pageseq(self, component: LTComponent) -> bool:
+    def update_pageseq(self, page: Page, component: LTComponent) -> bool:
         """Assign sequence numbers for objects on the page based on the nearest line of text.
         Returns True if we need to recurse on smaller sub-components (e.g. characters)."""
-        assert self.page is not None
         self.compseq += 1
 
         hits = 0
-        for x in itertools.chain(self.page.annots, self.page.outlines):
+        for x in itertools.chain(page.annots, page.outlines):
             if x.update_pageseq(component, self.compseq):
                 hits += 1
 
@@ -241,16 +229,15 @@ class _PDFProcessor:
         # that still exist after processing *all* the line-level components on the same page, but
         # that would require multiple rendering passes.
         if hits > 1 and isinstance(component, LTContainer) and len(component) > 1:
-            for x in itertools.chain(self.page.annots, self.page.outlines):
+            for x in itertools.chain(page.annots, page.outlines):
                 x.discard_pageseq(self.compseq)
             return True
 
         return False
 
-    def test_boxes(self, item: LTComponent) -> None:
+    def test_boxes(self, page: Page, item: LTComponent) -> None:
         """Update the set of annotations whose boxes intersect with the area of the given item."""
-        assert self.page is not None
-        hits = frozenset(a for a in self.page.annots if a.boxes
+        hits = frozenset(a for a in page.annots if a.boxes
                          and any(b.hit_item(item) for b in a.boxes))
         self._lasthit = hits
         self._curline.update(hits)
@@ -315,9 +302,9 @@ class _PDFProcessor:
                     # Subscribe this annotation for post-context.
                     self.context_subscribers.append((self.charseq, a))
 
-    def render(self, item: LTItem, pageseq_nested: bool = False) -> None:
+    def render(self, page: Page, item: LTItem, pageseq_nested: bool = False) -> None:
         """
-        Helper for receive_layout, called recursively for every item on a page, in layout order.
+        Helper for process_page, called recursively for every item on a page, in layout order.
 
         Ref: https://pdfminersix.readthedocs.io/en/latest/topic/converting_pdf_to_text.html
         """
@@ -325,12 +312,12 @@ class _PDFProcessor:
         # to figures (which may contain bare LTChar elements).
         if isinstance(item, (LTTextLine, LTFigure)) or (
                 pageseq_nested and isinstance(item, LTComponent)):
-            pageseq_nested = self.update_pageseq(item)
+            pageseq_nested = self.update_pageseq(page, item)
 
         # If it's a container, recurse on nested items.
         if isinstance(item, LTContainer):
             for child in item:
-                self.render(child, pageseq_nested)
+                self.render(page, child, pageseq_nested)
 
             # After the children of a text box, capture the end of the final
             # line (logic derived from pdfminer.converter.TextConverter).
@@ -341,7 +328,7 @@ class _PDFProcessor:
         # individual characters (not higher-level objects like LTTextLine)
         # so that we can capture only those covered by the annotation boxes.
         elif isinstance(item, LTChar):
-            self.test_boxes(item)
+            self.test_boxes(page, item)
             self.capture_char(item.get_text())
 
         # LTAnno objects capture whitespace not explicitly encoded in
@@ -368,9 +355,8 @@ def process_file(
         laparams            PDF Miner layout parameters
     """
 
-    # Initialise PDFMiner state
     doc = PDFDocument(file, space="page")
-    device = _PDFProcessor()
+    processor = _PDFProcessor()
 
     def emit_progress(msg: str) -> None:
         if emit_progress_to is not None:
@@ -392,7 +378,7 @@ def process_file(
                 outlines_by_objid[o.pageref.objid].append(o)
             else:
                 outlines_by_pageno[o.pageref].append(o)
-    except KeyError:
+    except KeyError:  # raised by PDFDocument.outlines
         logger.info("Document doesn't include outlines (\"bookmarks\")")
     except Exception as ex:
         logger.warning("Failed to retrieve outlines: %s", ex)
@@ -400,19 +386,18 @@ def process_file(
     # Iterate over all the pages, constructing page objects.
     result = Document()
     for pdfpage in doc.pages:
-        pageno = pdfpage.page_idx
-        emit_progress(" %d" % (pageno + 1))
+        emit_progress(" %d" % (pdfpage.page_idx + 1))
         # PLAYA will make up page labels if they don't exist (this is
         # arguably a bug in PLAYA) so use the explicit ones only.
-        page_label = pdfpage.label if doc.pages.have_labels else None
+        label = pdfpage.label if doc.pages.have_labels else None
 
-        page = Page(pageno, pdfpage.pageid, page_label, pdfpage.mediabox, columns_per_page)
+        page = Page(pdfpage.page_idx, pdfpage.pageid, label, pdfpage.mediabox, columns_per_page)
         result.pages.append(page)
 
         # Resolve any outlines referring to this page, and link them to the page.
         # Note that outlines may refer to the page number or ID.
         for o in (outlines_by_objid.pop(page.objid, [])
-                  + outlines_by_pageno.pop(pageno, [])):
+                  + outlines_by_pageno.pop(page.pageno, [])):
             o.resolve(page)
             page.outlines.append(o)
 
@@ -441,8 +426,7 @@ def process_file(
         # on the page, and updates annotations and outlines with a logical
         # sequence number based on the order of text lines on the page.
         layout = extract_page(pdfpage, laparams)
-        device.set_page(page)
-        device.receive_layout(layout)
+        processor.process_page(page, layout)
 
         # Now we have their logical order, sort the annotations and outlines.
         page.annots.sort()
