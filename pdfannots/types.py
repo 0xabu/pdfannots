@@ -426,19 +426,8 @@ class Annotation(ObjectWithPos):
         self.pre_context = pre_context
 
     def set_post_context(self, post_context: str) -> None:
-        assert self.post_context is None
-
-        # If the text ends in a (broadcast) newline, discard it lest it mess up the context below.
-        if self.text and self.text[-1] == '\n':
-            self.text.pop()
-
-        # If the captured text ends in any (other) space, move it to the context.
-        whitespace = []
-        while self.text and self.text[-1].isspace():
-            whitespace.append(self.text.pop())
-        if whitespace:
-            post_context = ''.join(whitespace) + post_context
-
+        # NB: this may be called more than once in obscure cases where text goes in and out of an
+        # annotation.
         self.post_context = post_context
 
     def has_context(self) -> bool:
@@ -471,6 +460,19 @@ class Annotation(ObjectWithPos):
         # duplicate text and contents (e.g., for simple highlights and strikeout).
         if self.contents and (text := self.gettext()) and text.strip() == self.contents.strip():
             self.contents = None
+
+        # Move whiteapce between the text and the post-context
+        if self.post_context:
+            # If the text ends in a (broadcast) newline, discard it lest it mess up the context below.
+            if self.text and self.text[-1] == '\n':
+                self.text.pop()
+
+            # If the captured text ends in any (other) space, move it to the context.
+            whitespace = []
+            while self.text and self.text[-1].isspace():
+                whitespace.append(self.text.pop())
+            if whitespace:
+                self.post_context = ''.join(whitespace) + self.post_context
 
 
 UnresolvedPage = typ.Union[int, PDFObjRef]

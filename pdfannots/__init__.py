@@ -293,7 +293,14 @@ class _PDFProcessor(PDFLayoutAnalyzer):
                 a.capture(text, self.charseq)
 
                 if a.wants_context():
-                    if a.has_context():
+                    if a.pre_context is None:
+                        # This is the first hit for the annotation, so set the pre-context.
+                        assert last_charseq == 0
+                        assert len(a.text) != 0
+                        pre_context = ''.join(
+                            self.recent_text[n] for n in range(len(self.recent_text) - 1))
+                        a.set_pre_context(pre_context)
+                    elif a.post_context is None:
                         # We already gave the annotation the pre-context, so it is subscribed.
                         # Locate and remove the annotation's existing context subscription.
                         assert last_charseq != 0
@@ -307,14 +314,6 @@ class _PDFProcessor(PDFLayoutAnalyzer):
                                 break
                             i += 1
                             assert i < len(self.context_subscribers)
-
-                    else:
-                        # This is the first hit for the annotation, so set the pre-context.
-                        assert last_charseq == 0
-                        assert len(a.text) != 0
-                        pre_context = ''.join(
-                            self.recent_text[n] for n in range(len(self.recent_text) - 1))
-                        a.set_pre_context(pre_context)
 
                     # Subscribe this annotation for post-context.
                     self.context_subscribers.append((self.charseq, a))
