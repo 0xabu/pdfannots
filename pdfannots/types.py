@@ -463,7 +463,7 @@ class Annotation(ObjectWithPos):
 
         # Move whiteapce between the text and the post-context
         if self.post_context:
-            # If the text ends in a (broadcast) newline, discard it lest it mess up the context below.
+            # If the text ends in a (broadcast) newline, discard it lest it mess up the context.
             if self.text and self.text[-1] == '\n':
                 self.text.pop()
 
