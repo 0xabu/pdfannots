@@ -348,7 +348,7 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
                 yield fmt_header("Highlights")
 
                 for color, annots in highlights_by_color.items():
-                    yield fmt_header(f"Color: {color.ashex()}", level=3)
+                    yield fmt_header(f"Color: {color.name()} ({color.ashex()})", level=3)
                     for a in annots:
                         yield self.format_annot(a, document)
 
