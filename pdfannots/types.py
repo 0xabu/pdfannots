@@ -7,8 +7,7 @@ import functools
 import logging
 import typing as typ
 
-from pdfminer.layout import LTComponent, LTText
-from pdfminer.pdftypes import PDFObjRef
+from paves.miner import LTComponent, LTText, PDFObjRef
 
 from .utils import merge_lines
 
