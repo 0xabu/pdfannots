@@ -1,0 +1,6 @@
+# dev/test requirements for pdfannots (not required for everyday use)
+-r requirements.txt
+autopep8 == 2.3.2
+flake8 == 7.3.0
+mypy == 1.18.2
+pytest >= 8.4

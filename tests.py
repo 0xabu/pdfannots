@@ -5,6 +5,7 @@ import json
 import operator
 import pathlib
 import re
+import sys
 import typing as typ
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -48,11 +49,13 @@ class ExtractionTestBase(unittest.TestCase):
             self.annots = [a for p in self.doc.pages for a in p.annots]
             self.outlines = [o for p in self.doc.pages for o in p.outlines]
 
-    def assertEndsWith(self, bigstr: str, suffix: str) -> None:
-        self.assertEqual(bigstr[-len(suffix):], suffix)
+    if sys.version_info < (3, 14):
+        def assertEndsWith(self, bigstr: str, suffix: str) -> None:
+            self.assertEqual(bigstr[-len(suffix):], suffix)
 
-    def assertStartsWith(self, bigstr: str, prefix: str) -> None:
-        self.assertEqual(bigstr[:len(prefix)], prefix)
+    if sys.version_info < (3, 14):
+        def assertStartsWith(self, bigstr: str, prefix: str) -> None:
+            self.assertEqual(bigstr[:len(prefix)], prefix)
 
 
 class ExtractionTests(ExtractionTestBase):
