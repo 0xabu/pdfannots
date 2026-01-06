@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "pdfannots"
 dynamic = ["version"]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = ["pdfminer.six >= 20220319, != 20240706"]
 description = "Tool to extract and pretty-print PDF annotations for reviewing"
 readme = "README.md"
