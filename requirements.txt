@@ -1,6 +1,6 @@
 # general requirements for pdfannots
 # Use as: pip3 install -r requirements.txt
 
-pdfminer.six == 20250324; python.version <= "3.8"
-pdfminer.six == 20251107; python.version == "3.9"
-pdfminer.six == 20251230; python.version > "3.9"
+pdfminer.six == 20250324 ; python.version <= "3.8"
+pdfminer.six == 20251107 ; python.version == "3.9"
+pdfminer.six == 20251230 ; python.version > "3.9"
