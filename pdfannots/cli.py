@@ -66,7 +66,7 @@ def parse_args() -> typ.Tuple[argparse.Namespace, LAParams]:
         "--group-highlights-by-color",
         dest="group_highlights_by_color",
         default=False, action="store_true",
-        help="Group highlights by color in grouped output."
+        help="Group highlights and comments by color in grouped output."
     )
 
     g.add_argument("-s", "--sections", metavar="SEC", nargs="*",
