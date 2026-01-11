@@ -342,7 +342,7 @@ class MarkdownPrinterTest(PrinterTestBase):
         self.assertGreater(charcount, 900)
 
     def test_multicolorgrouping(self) -> None:
-        p = GroupedMarkdownPrinter(group_highlights_by_color=True)
+        p = GroupedMarkdownPrinter(group_by_color=True)
 
         linecount = 0
         charcount = 0

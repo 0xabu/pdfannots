@@ -294,12 +294,12 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
         self,
         *,
         sections: typ.Sequence[str] = ALL_SECTIONS,  # controls the order of sections output
-        group_highlights_by_color: bool = False,     # Whether to group highlights by color
+        group_by_color: bool = False,                # Whether to group by color
         **kwargs: typ.Any                            # other args -- see superclass
     ) -> None:
         super().__init__(**kwargs)
         self.sections = sections
-        self.group_highlights_by_color = group_highlights_by_color
+        self.group_by_color = group_by_color
         self._fmt_header_called: bool
 
     def emit_body(
@@ -328,17 +328,20 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
 
         # Partition annotations into nits, comments, and highlights.
         nits: typ.List[Annotation] = []
-        comments: typ.List[Annotation] = []
         highlights: typ.List[Annotation] = []  # When grouping by color holds only undefined annots
         highlights_by_color: typ.DefaultDict[RGB, typ.List[Annotation]] = defaultdict(list)
-
+        comments: typ.List[Annotation] = []
+        comments_by_color: typ.DefaultDict[RGB, typ.List[Annotation]] = defaultdict(list)
         for a in document.iter_annots():
             if a.subtype in self.ANNOT_NITS:
                 nits.append(a)
             elif a.contents:
-                comments.append(a)
+                if self.group_by_color and a.color:
+                    comments_by_color[a.color].append(a)
+                else:
+                    comments.append(a)
             elif a.subtype == AnnotationType.Highlight:
-                if self.group_highlights_by_color and a.color:
+                if self.group_by_color and a.color:
                     highlights_by_color[a.color].append(a)
                 else:
                     highlights.append(a)
@@ -352,14 +355,23 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
                     for a in annots:
                         yield self.format_annot(a, document)
 
-                if highlights and self.group_highlights_by_color:
+                if highlights and self.group_by_color:
                     yield fmt_header("Color: undefined", level=3)
 
                 for a in highlights:
                     yield self.format_annot(a, document)
 
-            if comments and secname == 'comments':
+            if (comments or comments_by_color) and secname == 'comments':
                 yield fmt_header("Detailed comments")
+
+                for color, annots in comments_by_color.items():
+                    yield fmt_header(f"Color: {color.ashex()}", level=3)
+                    for a in annots:
+                        yield self.format_annot(a, document)
+
+                if comments and self.group_by_color:
+                    yield fmt_header("Color: undefined", level=3)
+
                 for a in comments:
                     yield self.format_annot(a, document)
 
