@@ -212,7 +212,25 @@ class MarkdownPrinter(Printer):
             return pre + '~~' + text + '~~' + post
         else:
             assert annot.subtype == AnnotationType.Caret
-            assert text.isspace()
+            if text and not text.isspace():
+                if len(text) > 2:
+                    # sometimes inserting between two words results in text being like "x x"
+                    text_splitted = text.split()
+                    assert len(text_splitted) == 2
+                    return pre + text_splitted[0] + ' ^ ' + text_splitted[1] + post
+                if len(text) == 2:
+                    # insert between two characters
+                    return pre + text[0] + '^' + text[1] + post
+                if len(pre) == 0 or pre.endswith(' '):
+                    # insert at the beginning of a paragraph or before a word
+                    return pre + '^ ' + text + post
+                elif len(post) == 0 or post.startswith(' '):
+                    # insert at the end of a paragraph or after a word
+                    return pre + text + ' ^' + post
+                else:
+                    # seem to only occur when inserting at
+                    # the begining of a line (not the beginning of a paragraph)
+                    return pre + ' ^ ' + text + post
             return pre.rstrip(' ') + ' ^ ' + post.lstrip(' ')
 
     def format_annot(
