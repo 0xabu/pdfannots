@@ -87,6 +87,7 @@ class MarkdownPrinter(Printer):
         *,
         condense: bool = True,                  # Permit use of the condensed format
         page_number_offset: int = 0,            # Page number offset
+        print_author: bool = False,             # Whether to print annotation authors
         print_filename: bool = False,           # Whether to print file names
         remove_hyphens: bool = True,            # Whether to remove hyphens across a line break
         use_page_labels: bool = True,           # Whether to use page labels
@@ -94,6 +95,7 @@ class MarkdownPrinter(Printer):
         **kwargs: typ.Any                       # Other args, ignored
     ) -> None:
         self.page_number_offset = page_number_offset
+        self.print_author = print_author
         self.print_filename = print_filename
         self.remove_hyphens = remove_hyphens
         self.use_page_labels = use_page_labels
@@ -143,12 +145,16 @@ class MarkdownPrinter(Printer):
         pos: Pos,
         document: Document,
         use_page_label: bool,
-        page_number_offset: int
+        page_number_offset: int,
+        author: typ.Optional[str] = None
     ) -> str:
 
         result = pos.page.format_name(
             use_label=use_page_label,
             page_number_offset=page_number_offset).title()
+
+        if author:
+            result += " [%s]" % author
 
         o = document.nearest_outline(pos)
         if o:
@@ -221,6 +227,9 @@ class MarkdownPrinter(Printer):
         document: Document,
         extra: typ.Optional[str] = None
     ) -> str:
+        # Capture the author before a Caret may be swapped for its StrikeOut child.
+        author = annot.author if self.print_author else None
+
         # Limited support for Caret annotations with a single "reply" of type StrikeOut
         contents = annot.contents
         if annot.subtype == AnnotationType.Caret and annot.group_children:
@@ -247,7 +256,8 @@ class MarkdownPrinter(Printer):
         # compute the formatted position (and extra bit if needed) as a label
         assert annot.pos is not None
         label = self.format_pos(
-            annot.pos, document, self.use_page_labels, self.page_number_offset
+            annot.pos, document, self.use_page_labels, self.page_number_offset,
+            author=author,
         ) + (" " + extra if extra else "") + ":"
 
         # If we have short (few words) text with a short or no comment, and the
