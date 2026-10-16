@@ -329,6 +329,19 @@ class MarkdownPrinterTest(PrinterTestBase):
 
         self.assertEqual(page_numbers, ['0', '0', '0', '1', '1', '1', '1', '3', '3', '3'])
 
+    def test_print_author(self) -> None:
+        annot = next(self.doc.iter_annots())
+        annot.author = "Author"
+        assert annot.pos is not None
+        page = annot.pos.page.format_name().title()
+        expected = "%s [Author]" % page
+
+        labelled = MarkdownPrinter(print_author=True).print_file('dummyfile', self.doc)
+        self.assertTrue(any(expected in line for line in labelled))
+
+        unlabelled = MarkdownPrinter().print_file('dummyfile', self.doc)
+        self.assertFalse(any("Author" in line for line in unlabelled))
+
     def test_grouped(self) -> None:
         p = GroupedMarkdownPrinter(wrap_column=80)
 

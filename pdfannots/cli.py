@@ -15,6 +15,7 @@ MD_FORMAT_ARGS = frozenset([
     'condense',
     'group_by_color',
     'page_number_offset',
+    'print_author',
     'print_filename',
     'sections',
     'use_page_labels',
@@ -82,6 +83,8 @@ def parse_args() -> typ.Tuple[argparse.Namespace, LAParams]:
                    help="Increase or decrease page numbers with a fixed offset.")
     g.add_argument("--print-filename", dest="print_filename", default=False, action="store_true",
                    help="Print the name of each file with annotations.")
+    g.add_argument("--print-author", dest="print_author", default=False, action="store_true",
+                   help="Print each annotation's author, if present.")
     g.add_argument("-w", "--wrap", dest="wrap_column", metavar="COLS", type=int,
                    help="Wrap text at this many output columns.")
 
