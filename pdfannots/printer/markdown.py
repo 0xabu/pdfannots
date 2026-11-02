@@ -218,26 +218,24 @@ class MarkdownPrinter(Printer):
             return pre + '~~' + text + '~~' + post
         else:
             assert annot.subtype == AnnotationType.Caret
-            if text and not text.isspace():
-                if len(text) > 2:
-                    # sometimes inserting between two words results in text being like "x x"
-                    text_splitted = text.split()
-                    assert len(text_splitted) == 2
-                    return pre + text_splitted[0] + ' ^ ' + text_splitted[1] + post
-                if len(text) == 2:
-                    # insert between two characters
-                    return pre + text[0] + '^' + text[1] + post
-                if len(pre) == 0 or pre.endswith(' '):
-                    # insert at the beginning of a paragraph or before a word
-                    return pre + '^ ' + text + post
-                elif len(post) == 0 or post.startswith(' '):
-                    # insert at the end of a paragraph or after a word
-                    return pre + text + ' ^' + post
-                else:
-                    # seem to only occur when inserting at
-                    # the begining of a line (not the beginning of a paragraph)
-                    return pre + ' ^ ' + text + post
-            return pre.rstrip(' ') + ' ^ ' + post.lstrip(' ')
+            if text.isspace():
+                return pre.rstrip(' ') + ' ^ ' + post.lstrip(' ')
+            elif len(text) > 2:
+                # sometimes inserting between two words results in text being like "x x"
+                text_split = text.split(None, 1)
+                return pre + text_split[0] + ' ^ ' + ''.join(text_split[1:]) + post
+            elif len(text) == 2:
+                # insert between two characters
+                return pre + text[0] + '^' + text[1] + post
+            elif not pre or pre[-1].isspace():
+                # insert at the beginning of a paragraph or before a word
+                return pre + '^ ' + text + post
+            elif not post or post[0].isspace():
+                # insert at the end of a paragraph or after a word
+                return pre + text + ' ^' + post
+            else:
+                # seems to only occur when inserting at the begining of a line (not paragraph)
+                return pre + ' ^ ' + text + post
 
     def format_annot(
         self,
