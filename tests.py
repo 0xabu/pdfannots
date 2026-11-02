@@ -374,6 +374,24 @@ class MarkdownPrinterTest(PrinterTestBase):
         self.assertGreater(charcount, 900)
 
 
+class MarkdownCaretPrinterTest(unittest.TestCase):
+    filename = 'pr119_caret.pdf'
+
+    def setUp(self) -> None:
+        path = pathlib.Path(__file__).parent / 'tests' / self.filename
+        with path.open('rb') as f:
+            self.doc = pdfannots.process_file(f)
+
+    def test_no_crash(self) -> None:
+        p = MarkdownPrinter()
+
+        linecount = 0
+        for line in p.print_file('dummyfile', self.doc):
+            linecount += line.count('\n')
+
+        self.assertGreater(linecount, 5)
+
+
 class JsonPrinterTest(PrinterTestBase):
     def test_flat(self) -> None:
         p = JsonPrinter(remove_hyphens=False, output_codec='utf-8')
