@@ -202,8 +202,9 @@ class Pos:
                     return self_col < other_col or (self_col == other_col and sy > oy)
                 else:
                     # Default layout inferred from pdfminer traversal
-                    assert self._pageseq != 0
-                    assert other._pageseq != 0
+                    # Sequence numbers stay unset on a page with no text lines
+                    # or figures. On a single page they are all-or-nothing.
+                    assert (self._pageseq == 0) == (other._pageseq == 0)
                     if self._pageseq == other._pageseq:
                         # The positions are on or closest to the same line of text.
                         # XXX: assume top-to-bottom left-to-right order
