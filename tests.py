@@ -191,6 +191,13 @@ class Pr24(ExtractionTestBase):
             self.assertEqual((a.subtype, a.contents, a.gettext()), expected)
 
 
+class Issue121(ExtractionTestBase):
+    filename = 'issue121.pdf'
+
+    def test(self) -> None:
+        self.assertTrue(self.annots) # and we didn't crash
+
+
 class Landscape2Column(ExtractionTestBase):
     filename = 'word2column.pdf'
 
