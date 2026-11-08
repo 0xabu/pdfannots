@@ -52,7 +52,7 @@ def _mkannotation(
     Refer to Section 8.4 of the PDF reference (version 1.7).
     """
 
-    subtype = pa.get('Subtype')
+    subtype = pdftypes.resolve1(pa.get('Subtype'))
     annot_type = None
     assert isinstance(subtype, PSLiteral)
     try:
@@ -65,7 +65,7 @@ def _mkannotation(
             logger.warning("Unsupported %s annotation ignored on %s", subtype.name, page)
         return None
 
-    contents = pa.get('Contents')
+    contents = pdftypes.resolve1(pa.get('Contents'))
     if contents is not None:
         # decode as string, normalise line endings, replace special characters
         contents = cleanup_text(pdfminer.utils.decode_text(contents))

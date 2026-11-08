@@ -283,6 +283,16 @@ class FreeTextAnnotation(ExtractionTestBase):
         self.assertEqual(self.annots[0].gettext(), None)
 
 
+class IndirectObjects(ExtractionTestBase):
+    # /Subtype and /Contents of the annotation are indirect objects
+    filename = 'indirect-objects.pdf'
+
+    def test(self) -> None:
+        self.assertEqual(len(self.annots), 1)
+        self.assertEqual(self.annots[0].subtype, AnnotationType.Text)
+        self.assertEqual(self.annots[0].contents, 'A comment stored as an indirect object')
+
+
 class CaretAnnotations(ExtractionTestBase):
     filename = 'caret.pdf'
 
