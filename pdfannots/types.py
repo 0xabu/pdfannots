@@ -44,8 +44,9 @@ class Box:
     @staticmethod
     def from_coords(coords: BoxCoords) -> Box:
         """Construct a Box from the given PDF coordinates."""
+        # A PDF rectangle may be given by any two diagonally opposite corners
         (x0, y0, x1, y1) = coords
-        return Box(x0, y0, x1, y1)
+        return Box(min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1))
 
     def get_coords(self) -> BoxCoords:
         """Return the PDF coordinates of this box."""
