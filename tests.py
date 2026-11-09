@@ -293,6 +293,17 @@ class IndirectObjects(ExtractionTestBase):
         self.assertEqual(self.annots[0].contents, 'A comment stored as an indirect object')
 
 
+class SwappedCorners(ExtractionTestBase):
+    # /MediaBox and the caret's /Rect are given by their upper-left and lower-right corners
+    filename = 'swapped-corners.pdf'
+
+    def test(self) -> None:
+        self.assertEqual(self.doc.pages[0].mediabox.get_coords(), (0, 0, 300, 300))
+        self.assertEqual(len(self.annots), 1)
+        self.assertEqual(self.annots[0].subtype, AnnotationType.Caret)
+        self.assertEqual(self.annots[0].boxes[0].get_coords(), (50, 250, 70, 270))
+
+
 class CaretAnnotations(ExtractionTestBase):
     filename = 'caret.pdf'
 
