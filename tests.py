@@ -320,6 +320,18 @@ class DanglingOutlines(ExtractionTestBase):
         self.assertEqual(sum('Ignoring outline' in line for line in logs.output), 5)
 
 
+class AnnotsEntriesWithoutSubtype(ExtractionTestBase):
+    # /Annots also lists a link's action dictionary and a border array, as in
+    # PyMuPDF's test_2861.pdf (https://github.com/pymupdf/PyMuPDF/issues/2861)
+    filename = 'annots-entries-without-subtype.pdf'
+
+    def test(self) -> None:
+        self.assertEqual(len(self.annots), 1)
+        self.assertEqual(self.annots[0].subtype, AnnotationType.Text)
+        self.assertEqual(self.annots[0].contents,
+                         'A comment after two entries that are not annotations')
+
+
 class CaretAnnotations(ExtractionTestBase):
     filename = 'caret.pdf'
 

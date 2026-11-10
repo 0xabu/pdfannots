@@ -53,8 +53,11 @@ def _mkannotation(
     """
 
     subtype = pdftypes.resolve1(pa.get('Subtype'))
+    if not isinstance(subtype, PSLiteral):
+        # Not an annotation, e.g. a link's action dictionary listed in /Annots by mistake
+        logger.warning("Annotation without a valid /Subtype ignored on %s", page)
+        return None
     annot_type = None
-    assert isinstance(subtype, PSLiteral)
     try:
         annot_type = ANNOT_SUBTYPES[subtype]
     except KeyError:
