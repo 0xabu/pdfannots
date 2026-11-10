@@ -320,6 +320,26 @@ class DanglingOutlines(ExtractionTestBase):
         self.assertEqual(sum('Ignoring outline' in line for line in logs.output), 5)
 
 
+class FitDestinations(ExtractionTestBase):
+    # One outline for each type of destination other than /XYZ, all on one page, an
+    # /XYZ destination without its top and zoom, as in pypdf's issue2236.pdf, and one
+    # whose left is the name /null instead of null, as in pypdf's Vitocal.pdf
+    filename = 'fit-destinations.pdf'
+
+    def test(self) -> None:
+        positions = {o.title: (o.pos.x, o.pos.y) for o in self.outlines if o.pos}
+        self.assertEqual(positions, {
+            'Fit': (0, 300),
+            'FitB': (0, 300),
+            'FitH': (0, 200),
+            'FitBH': (0, 150),
+            'FitV': (40, 300),
+            'FitR': (30, 120),
+            'XYZ': (60, 300),
+            'Invalid XYZ': (0, 300),
+        })
+
+
 class AnnotsEntriesWithoutSubtype(ExtractionTestBase):
     # /Annots also lists a link's action dictionary and a border array, as in
     # PyMuPDF's test_2861.pdf (https://github.com/pymupdf/PyMuPDF/issues/2861)

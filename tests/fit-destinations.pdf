@@ -1,0 +1,61 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R /Outlines 3 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 1 /Kids [ 4 0 R ] >>
+endobj
+3 0 obj
+<< /Type /Outlines /First 5 0 R /Last 12 0 R /Count 8 >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [ 0 0 300 300 ] /Resources << >> >>
+endobj
+5 0 obj
+<< /Title (Fit) /Parent 3 0 R /Next 6 0 R /Dest [ 4 0 R /Fit ] >>
+endobj
+6 0 obj
+<< /Title (FitB) /Parent 3 0 R /Prev 5 0 R /Next 7 0 R /Dest [ 4 0 R /FitB ] >>
+endobj
+7 0 obj
+<< /Title (FitH) /Parent 3 0 R /Prev 6 0 R /Next 8 0 R /Dest [ 4 0 R /FitH 200 ] >>
+endobj
+8 0 obj
+<< /Title (FitBH) /Parent 3 0 R /Prev 7 0 R /Next 9 0 R /Dest [ 4 0 R /FitBH 150 ] >>
+endobj
+9 0 obj
+<< /Title (FitV) /Parent 3 0 R /Prev 8 0 R /Next 10 0 R /Dest [ 4 0 R /FitV 40 ] >>
+endobj
+10 0 obj
+<< /Title (FitR) /Parent 3 0 R /Prev 9 0 R /Next 11 0 R /Dest [ 4 0 R /FitR 30 50 250 120 ] >>
+endobj
+11 0 obj
+<< /Title (XYZ) /Parent 3 0 R /Prev 10 0 R /Next 12 0 R /Dest [ 4 0 R /XYZ 60 ] >>
+endobj
+12 0 obj
+<< /Title (Invalid XYZ) /Parent 3 0 R /Prev 11 0 R /Dest [ 4 0 R /XYZ /null 250 0 ] >>
+endobj
+xref
+0 13
+0000000000 65535 f 
+0000000015 00000 n 
+0000000080 00000 n 
+0000000139 00000 n 
+0000000211 00000 n 
+0000000301 00000 n 
+0000000382 00000 n 
+0000000477 00000 n 
+0000000576 00000 n 
+0000000677 00000 n 
+0000000776 00000 n 
+0000000887 00000 n 
+0000000986 00000 n 
+trailer
+<<
+/Size 13
+/Root 1 0 R
+>>
+startxref
+1089
+%%EOF
