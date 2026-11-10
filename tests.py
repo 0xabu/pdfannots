@@ -304,6 +304,22 @@ class SwappedCorners(ExtractionTestBase):
         self.assertEqual(self.annots[0].boxes[0].get_coords(), (50, 250, 70, 270))
 
 
+class DanglingOutlines(ExtractionTestBase):
+    # A 3-page excerpt of a US FDA guidance document, from the ICDAR 2013 table
+    # competition dataset. Its 5 outlines refer to pages that were not extracted.
+    filename = 'excerpt-with-dangling-outlines.pdf'
+
+    def test(self) -> None:
+        self.assertEqual(len(self.doc.pages), 3)
+        self.assertEqual(self.outlines, [])
+
+    def test_warns(self) -> None:
+        path = pathlib.Path(__file__).parent / 'tests' / self.filename
+        with self.assertLogs('pdfannots', level='WARNING') as logs, path.open('rb') as f:
+            pdfannots.process_file(f)
+        self.assertEqual(sum('Ignoring outline' in line for line in logs.output), 5)
+
+
 class AnnotsEntriesWithoutSubtype(ExtractionTestBase):
     # /Annots also lists a link's action dictionary and a border array, as in
     # PyMuPDF's test_2861.pdf (https://github.com/pymupdf/PyMuPDF/issues/2861)

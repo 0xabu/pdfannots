@@ -460,8 +460,9 @@ def process_file(
 
     device.close()
 
-    # all outlines should be resolved by now
-    assert {} == outlines_by_pageno
-    assert {} == outlines_by_objid
+    # Any outlines left refer to a page that isn't in the document, e.g. bookmarks
+    # kept when some pages were extracted from a larger PDF. They can't be placed.
+    for o in itertools.chain(*outlines_by_pageno.values(), *outlines_by_objid.values()):
+        logger.warning("Ignoring outline '%s': its target page is not in the document", o.title)
 
     return result
