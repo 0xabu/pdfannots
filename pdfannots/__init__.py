@@ -16,7 +16,7 @@ from pdfminer.layout import (LAParams, LTAnno, LTChar, LTComponent, LTContainer,
                              LTPage, LTTextBox, LTTextLine)
 from pdfminer.converter import PDFLayoutAnalyzer
 from pdfminer.pdfparser import PDFParser
-from pdfminer.pdfdocument import PDFDocument, PDFNoOutlines
+from pdfminer.pdfdocument import PDFDocument, PDFDestinationNotFound, PDFNoOutlines
 from pdfminer.psparser import PSLiteralTable, PSLiteral
 from pdfminer import pdftypes
 import pdfminer.settings
@@ -146,7 +146,11 @@ def _get_outlines(doc: PDFDocument) -> typ.Iterator[Outline]:
                     destname = action.get('D')
         if destname is None:
             continue
-        dest = _resolve_dest(destname)
+        try:
+            dest = _resolve_dest(destname)
+        except PDFDestinationNotFound:
+            logger.warning("Ignoring outline '%s': its named destination is not defined", title)
+            continue
 
         # consider targets of the form [page /XYZ left top zoom]
         if dest[1] is PSLiteralTable.intern('XYZ'):
