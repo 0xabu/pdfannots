@@ -426,17 +426,29 @@ def process_file(
         annots_by_objid: typ.Dict[int, Annotation] = {}
 
         # Construct Annotation objects, and append them to the page.
+        # Entries are normally indirect references, but some writers (e.g. MJ PDF)
+        # place the annotation dictionary directly in the /Annots array.
         for pa in pdftypes.resolve1(pdfpage.annots) if pdfpage.annots else []:
+            objid = None
             if isinstance(pa, pdftypes.PDFObjRef):
                 annot_dict = pdftypes.dict_value(pa)
-                if annot_dict:  # Would be empty if pa is a broken ref
-                    annot = _mkannotation(annot_dict, page)
-                    if annot is not None:
-                        page.annots.append(annot)
-                        assert pa.objid not in annots_by_objid
-                        annots_by_objid[pa.objid] = annot
+                objid = pa.objid
+            elif isinstance(pa, dict):
+                annot_dict = pa
             else:
                 logger.warning("Unknown annotation: %s", pa)
+                continue
+
+            if not annot_dict:  # Would be empty if pa is a broken ref
+                continue
+
+            annot = _mkannotation(annot_dict, page)
+            if annot is not None:
+                page.annots.append(annot)
+                if objid is not None:
+                    # A direct dictionary has no object id, so nothing can refer to it.
+                    assert objid not in annots_by_objid
+                    annots_by_objid[objid] = annot
 
         # If the page has neither outlines nor annotations, skip further processing.
         if not (page.annots or page.outlines):
