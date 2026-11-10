@@ -33,6 +33,16 @@ def _float_or_disabled(x: str) -> typ.Optional[float]:
         raise argparse.ArgumentTypeError("invalid float value: {}".format(x)) from ex
 
 
+def _positive_int(x: str) -> int:
+    try:
+        value = int(x)
+    except ValueError as ex:
+        raise argparse.ArgumentTypeError("invalid integer value: {}".format(x)) from ex
+    if value <= 0:
+        raise argparse.ArgumentTypeError("must be a positive integer: {}".format(x))
+    return value
+
+
 def parse_args() -> typ.Tuple[argparse.Namespace, LAParams]:
     p = argparse.ArgumentParser(prog='pdfannots', description=__doc__)
 
@@ -47,7 +57,7 @@ def parse_args() -> typ.Tuple[argparse.Namespace, LAParams]:
                    help="Emit progress information to stderr.")
     g.add_argument("-o", metavar="OUTFILE", type=argparse.FileType("w", encoding="utf-8"),
                    dest="output", default=sys.stdout, help="Output file (default is stdout).")
-    g.add_argument("-n", "--cols", default=None, type=int, metavar="COLS", dest="cols",
+    g.add_argument("-n", "--cols", default=None, type=_positive_int, metavar="COLS", dest="cols",
                    help="Assume a fixed top-to-bottom left-to-right page layout with this many "
                         "columns per page. If unset, PDFMiner's layout detection logic is used.")
     g.add_argument("--keep-hyphens", dest="remove_hyphens", default=True, action="store_false",
