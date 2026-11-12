@@ -1,0 +1,100 @@
+%PDF-1.3
+1 0 obj
+<< /Producer (hand-written) >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 5 /Kids [ 5 0 R 8 0 R 11 0 R 14 0 R 17 0 R ] >>
+endobj
+3 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [ 0 0 300 300 ] /Resources << /Font << /F1 4 0 R >> >> /Contents 6 0 R /Annots [ 7 0 R ] >>
+endobj
+6 0 obj
+<< /Length 80 >>
+stream
+BT /F1 12 Tf 50 250 Td (Page 1, not rotated) Tj 0 -40 Td (Not highlighted) Tj ET
+endstream
+endobj
+7 0 obj
+<< /Type /Annot /Subtype /Highlight /Rect [ 45 246 250 262 ] /QuadPoints [ 45 262 250 262 45 246 250 246 ] /C [ 1 1 0 ] >>
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [ 0 0 300 300 ] /Rotate 90 /Resources << /Font << /F1 4 0 R >> >> /Contents 9 0 R /Annots [ 10 0 R ] >>
+endobj
+9 0 obj
+<< /Length 82 >>
+stream
+BT /F1 12 Tf 50 250 Td (Page 2, rotated by 90) Tj 0 -40 Td (Not highlighted) Tj ET
+endstream
+endobj
+10 0 obj
+<< /Type /Annot /Subtype /Highlight /Rect [ 45 246 250 262 ] /QuadPoints [ 45 262 250 262 45 246 250 246 ] /C [ 1 1 0 ] >>
+endobj
+11 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [ 0 0 300 300 ] /Rotate 180 /Resources << /Font << /F1 4 0 R >> >> /Contents 12 0 R /Annots [ 13 0 R ] >>
+endobj
+12 0 obj
+<< /Length 83 >>
+stream
+BT /F1 12 Tf 50 250 Td (Page 3, rotated by 180) Tj 0 -40 Td (Not highlighted) Tj ET
+endstream
+endobj
+13 0 obj
+<< /Type /Annot /Subtype /Highlight /Rect [ 45 246 250 262 ] /QuadPoints [ 45 262 250 262 45 246 250 246 ] /C [ 1 1 0 ] >>
+endobj
+14 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [ 0 0 300 300 ] /Rotate 270 /Resources << /Font << /F1 4 0 R >> >> /Contents 15 0 R /Annots [ 16 0 R ] >>
+endobj
+15 0 obj
+<< /Length 83 >>
+stream
+BT /F1 12 Tf 50 250 Td (Page 4, rotated by 270) Tj 0 -40 Td (Not highlighted) Tj ET
+endstream
+endobj
+16 0 obj
+<< /Type /Annot /Subtype /Highlight /Rect [ 45 246 250 262 ] /QuadPoints [ 45 262 250 262 45 246 250 246 ] /C [ 1 1 0 ] >>
+endobj
+17 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [ 100 200 400 500 ] /Resources << /Font << /F1 4 0 R >> >> /Contents 18 0 R /Annots [ 19 0 R ] >>
+endobj
+18 0 obj
+<< /Length 91 >>
+stream
+BT /F1 12 Tf 150 450 Td (Page 5, with its origin moved) Tj 0 -40 Td (Not highlighted) Tj ET
+endstream
+endobj
+19 0 obj
+<< /Type /Annot /Subtype /Highlight /Rect [ 145 446 350 462 ] /QuadPoints [ 145 462 350 462 145 446 350 446 ] /C [ 1 1 0 ] >>
+endobj
+xref
+0 20
+0000000000 65535 f 
+0000000009 00000 n 
+0000000055 00000 n 
+0000000141 00000 n 
+0000000190 00000 n 
+0000000260 00000 n 
+0000000406 00000 n 
+0000000536 00000 n 
+0000000674 00000 n 
+0000000832 00000 n 
+0000000964 00000 n 
+0000001103 00000 n 
+0000001264 00000 n 
+0000001398 00000 n 
+0000001537 00000 n 
+0000001698 00000 n 
+0000001832 00000 n 
+0000001971 00000 n 
+0000002124 00000 n 
+0000002266 00000 n 
+trailer
+<< /Size 20 /Root 3 0 R /Info 1 0 R >>
+startxref
+2408
+%%EOF

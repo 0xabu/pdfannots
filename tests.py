@@ -311,6 +311,22 @@ class SwappedCorners(ExtractionTestBase):
         self.assertEqual(self.annots[0].boxes[0].get_coords(), (50, 250, 70, 270))
 
 
+class RotatedPages(ExtractionTestBase):
+    # Pages with /Rotate 0, 90, 180 and 270, and one whose /MediaBox does not start at
+    # (0, 0), each with a highlight over its first line, as in pdfplumber's
+    # annotations-rotated-90.pdf
+    filename = 'rotated-pages.pdf'
+
+    def test(self) -> None:
+        self.assertEqual([a.gettext() for a in self.annots], [
+            'Page 1, not rotated',
+            'Page 2, rotated by 90',
+            'Page 3, rotated by 180',
+            'Page 4, rotated by 270',
+            'Page 5, with its origin moved',
+        ])
+
+
 class DanglingOutlines(ExtractionTestBase):
     # A 3-page excerpt of a US FDA guidance document, from the ICDAR 2013 table
     # competition dataset. Its 5 outlines refer to pages that were not extracted.

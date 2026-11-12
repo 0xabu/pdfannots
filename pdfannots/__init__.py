@@ -21,6 +21,7 @@ from pdfminer.psparser import PSLiteralTable, PSLiteral
 from pdfminer import pdftypes
 import pdfminer.settings
 import pdfminer.utils
+from pdfminer.utils import MATRIX_IDENTITY
 
 from .types import Page, Outline, AnnotationType, Annotation, Document, RGB
 from .utils import cleanup_text, decode_datetime
@@ -169,6 +170,20 @@ def _get_outlines(doc: PDFDocument) -> typ.Iterator[Outline]:
                         target = None
 
                 yield Outline(title, pageref, target)
+
+
+class _PDFPageInterpreter(PDFPageInterpreter):
+    """
+    Page interpreter that lays out the page in its default user space.
+
+    pdfminer turns the page by its /Rotate and moves the origin of its /MediaBox to (0, 0),
+    but the boxes of annotations and the targets of outlines are given in default user space.
+    """
+
+    def process_page(self, page: PDFPage) -> None:
+        self.device.begin_page(page, MATRIX_IDENTITY)
+        self.render_contents(page.resources, page.contents, ctm=MATRIX_IDENTITY)
+        self.device.end_page(page)
 
 
 class _PDFProcessor(PDFLayoutAnalyzer):
@@ -381,7 +396,7 @@ def process_file(
     # Initialise PDFMiner state
     rsrcmgr = PDFResourceManager()
     device = _PDFProcessor(rsrcmgr, laparams)
-    interpreter = PDFPageInterpreter(rsrcmgr, device)
+    interpreter = _PDFPageInterpreter(rsrcmgr, device)
     parser = PDFParser(file)
     doc = PDFDocument(parser)
 
