@@ -327,6 +327,21 @@ class DanglingOutlines(ExtractionTestBase):
         self.assertEqual(sum('Ignoring outline' in line for line in logs.output), 5)
 
 
+class MissingNamedDestination(ExtractionTestBase):
+    # The second of three outlines refers to a named destination that the
+    # document doesn't define, as in pypdf's outlines-with-invalid-destinations.pdf
+    filename = 'missing-named-destination.pdf'
+
+    def test(self) -> None:
+        self.assertEqual([o.title for o in self.outlines], ['Chapter 1', 'Chapter 3'])
+
+    def test_warns(self) -> None:
+        path = pathlib.Path(__file__).parent / 'tests' / self.filename
+        with self.assertLogs('pdfannots', level='WARNING') as logs, path.open('rb') as f:
+            pdfannots.process_file(f)
+        self.assertEqual(sum("Ignoring outline 'Chapter 2'" in line for line in logs.output), 1)
+
+
 class AnnotsEntriesWithoutSubtype(ExtractionTestBase):
     # /Annots also lists a link's action dictionary and a border array, as in
     # PyMuPDF's test_2861.pdf (https://github.com/pymupdf/PyMuPDF/issues/2861)
