@@ -16,7 +16,7 @@ from pdfminer.layout import (LAParams, LTAnno, LTChar, LTComponent, LTContainer,
                              LTPage, LTTextBox, LTTextLine)
 from pdfminer.converter import PDFLayoutAnalyzer
 from pdfminer.pdfparser import PDFParser
-from pdfminer.pdfdocument import PDFDocument, PDFNoOutlines
+from pdfminer.pdfdocument import PDFDocument, PDFDestinationNotFound, PDFNoOutlines
 from pdfminer.psparser import PSLiteralTable, PSLiteral
 from pdfminer import pdftypes
 import pdfminer.settings
@@ -160,7 +160,11 @@ def _get_outlines(doc: PDFDocument) -> typ.Iterator[Outline]:
                     destname = action.get('D')
         if destname is None:
             continue
-        dest = _resolve_dest(destname)
+        try:
+            dest = _resolve_dest(destname)
+        except PDFDestinationNotFound:
+            logger.warning("Ignoring outline '%s': its named destination is not defined", title)
+            continue
 
         # consider targets of the form [page /XYZ left top zoom], [page /FitH top], etc.
         target_args = DEST_TARGET_ARGS.get(dest[1]) if isinstance(dest[1], PSLiteral) else None
@@ -441,16 +445,27 @@ def process_file(
 
         # Construct Annotation objects, and append them to the page.
         for pa in pdftypes.resolve1(pdfpage.annots) if pdfpage.annots else []:
+            # Per the PDF spec each entry should be an indirect reference, but some writers
+            # (e.g. PDFium) place the annotation dictionary directly in the /Annots array.
+            objid = None
             if isinstance(pa, pdftypes.PDFObjRef):
                 annot_dict = pdftypes.dict_value(pa)
-                if annot_dict:  # Would be empty if pa is a broken ref
-                    annot = _mkannotation(annot_dict, page)
-                    if annot is not None:
-                        page.annots.append(annot)
-                        assert pa.objid not in annots_by_objid
-                        annots_by_objid[pa.objid] = annot
+                objid = pa.objid
+            elif isinstance(pa, dict):
+                annot_dict = pa
             else:
-                logger.warning("Unknown annotation: %s", pa)
+                logger.warning("Invalid annotation: %s", pa)
+                continue
+
+            if not annot_dict:  # Would be empty if pa was a broken ref
+                continue
+
+            annot = _mkannotation(annot_dict, page)
+            if annot is not None:
+                page.annots.append(annot)
+                if objid is not None:
+                    assert objid not in annots_by_objid
+                    annots_by_objid[objid] = annot
 
         # If the page has neither outlines nor annotations, skip further processing.
         if not (page.annots or page.outlines):
