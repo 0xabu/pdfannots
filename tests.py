@@ -198,6 +198,13 @@ class Issue121(ExtractionTestBase):
         self.assertTrue(self.annots)  # and we didn't crash
 
 
+class Issue132(ExtractionTestBase):
+    filename = 'issue132.pdf'
+
+    def test(self) -> None:
+        self.assertTrue(self.annots)  # and we didn't crash
+
+
 class Landscape2Column(ExtractionTestBase):
     filename = 'word2column.pdf'
 
