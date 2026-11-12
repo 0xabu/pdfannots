@@ -497,7 +497,7 @@ class Outline(ObjectWithPos):
         self,
         title: str,
         pageref: UnresolvedPage,
-        target: typ.Optional[typ.Tuple[float, float]]
+        target: typ.Optional[typ.Tuple[typ.Optional[float], typ.Optional[float]]]
     ):
         super().__init__()
         self.title = title
@@ -515,11 +515,13 @@ class Outline(ObjectWithPos):
         else:
             assert self.pageref == page.pageno
 
-        if self.target is None:
-            # XXX: "first" point on the page, assuming left-to-right top-to-bottom order
-            (targetx, targety) = (page.mediabox.x0, page.mediabox.y1)
-        else:
-            (targetx, targety) = self.target
+        # XXX: a missing coordinate defaults to the "first" point on the page,
+        # assuming left-to-right top-to-bottom order
+        (targetx, targety) = self.target or (None, None)
+        if targetx is None:
+            targetx = page.mediabox.x0
+        if targety is None:
+            targety = page.mediabox.y1
 
         self.pos = Pos(page, targetx, targety)
 

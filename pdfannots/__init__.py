@@ -123,6 +123,20 @@ def _mkannotation(
                       in_reply_to_ref=in_reply_to, is_group_child=is_group)
 
 
+DEST_TARGET_ARGS: typ.Dict[PSLiteral, typ.Tuple[typ.Optional[int], typ.Optional[int]]] = {
+    PSLiteralTable.intern(k): v for (k, v) in {
+        'XYZ': (2, 3),       # [page /XYZ left top zoom]
+        'Fit': (None, None),  # [page /Fit]
+        'FitB': (None, None),
+        'FitH': (None, 2),   # [page /FitH top]
+        'FitBH': (None, 2),
+        'FitV': (2, None),   # [page /FitV left]
+        'FitBV': (2, None),
+        'FitR': (2, 5),      # [page /FitR left bottom right top]
+    }.items()}
+"""Destination types, mapped to the indices of their left and top arguments, if any."""
+
+
 def _get_outlines(doc: PDFDocument) -> typ.Iterator[Outline]:
     """Retrieve a list of (unresolved) Outline objects for all recognised outlines in the PDF."""
 
@@ -152,21 +166,21 @@ def _get_outlines(doc: PDFDocument) -> typ.Iterator[Outline]:
             logger.warning("Ignoring outline '%s': its named destination is not defined", title)
             continue
 
-        # consider targets of the form [page /XYZ left top zoom]
-        if dest[1] is PSLiteralTable.intern('XYZ'):
-            (pageref, _, targetx, targety) = dest[:4]
+        # consider targets of the form [page /XYZ left top zoom], [page /FitH top], etc.
+        target_args = DEST_TARGET_ARGS.get(dest[1]) if isinstance(dest[1], PSLiteral) else None
+        if target_args is not None:
+            pageref = dest[0]
+            # A missing or null coordinate is left to the page's edge
+            (targetx, targety) = (dest[i] if i is not None and i < len(dest) else None
+                                  for i in target_args)
 
             if not isinstance(pageref, (int, pdftypes.PDFObjRef)):
                 logger.warning("Unsupported pageref in outline: %s", pageref)
             else:
-                if targetx is None or targety is None:
-                    # Treat as a general reference to the page
-                    target = None
-                else:
-                    target = (targetx, targety)
-                    if not all(isinstance(v, (int, float)) for v in target):
-                        logger.warning("Unsupported target in outline: (%r, %r)", targetx, targety)
-                        target = None
+                target = (targetx, targety)
+                if not all(v is None or isinstance(v, (int, float)) for v in target):
+                    logger.warning("Unsupported target in outline: (%r, %r)", targetx, targety)
+                    target = (None, None)
 
                 yield Outline(title, pageref, target)
 
