@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
+import csv
 import functools
+import io
 import json
 import operator
 import pathlib
@@ -17,6 +19,7 @@ import pdfannots.utils
 from pdfannots.types import AnnotationType
 from pdfannots.printer.markdown import MarkdownPrinter, GroupedMarkdownPrinter
 from pdfannots.printer.json import JsonPrinter
+from pdfannots.printer.csv import CsvPrinter, CSV_FIELDS
 
 
 class UnitTests(unittest.TestCase):
@@ -474,6 +477,29 @@ class JsonPrinterTest(PrinterTestBase):
 
         self.assertTrue(isinstance(j, list))
         self.assertEqual(len(j), 10)
+
+
+class CsvPrinterTest(PrinterTestBase):
+    def test_flat(self) -> None:
+        p = CsvPrinter(remove_hyphens=False)
+
+        text = p.begin() + ''.join(p.print_file('dummyfile', self.doc)) + p.end()
+        rows = list(csv.reader(io.StringIO(text)))
+
+        self.assertEqual(rows[0], CSV_FIELDS)
+        self.assertEqual(len(rows) - 1, 10)
+        self.assertTrue(all(row[0] == 'dummyfile' for row in rows[1:]))
+        self.assertTrue(all(len(row) == len(CSV_FIELDS) for row in rows))
+
+    def test_multiple_files(self) -> None:
+        p = CsvPrinter(remove_hyphens=False)
+
+        text = p.begin() + ''.join(p.print_file('a.pdf', self.doc)) \
+            + ''.join(p.print_file('b.pdf', self.doc))
+        rows = list(csv.reader(io.StringIO(text)))
+
+        self.assertEqual(len(rows) - 1, 20)
+        self.assertEqual(sum(row[0] == 'b.pdf' for row in rows[1:]), 10)
 
 
 if __name__ == "__main__":
