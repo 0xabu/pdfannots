@@ -241,7 +241,8 @@ class MarkdownPrinter(Printer):
         self,
         annot: Annotation,
         document: Document,
-        extra: typ.Optional[str] = None
+        extra: typ.Optional[str] = None,
+        is_reply: bool = False
     ) -> str:
         # Capture the author before a Caret may be swapped for its StrikeOut child.
         author = annot.author if self.print_author else None
@@ -271,10 +272,14 @@ class MarkdownPrinter(Printer):
 
         # compute the formatted position (and extra bit if needed) as a label
         assert annot.pos is not None
-        label = self.format_pos(
-            annot.pos, document, self.use_page_labels, self.page_number_offset,
-            author=author,
-        ) + (" " + extra if extra else "") + ":"
+        if is_reply:
+            # A reply sits under its parent, which already gives the page and outline.
+            label = "Reply" + (" [%s]" % author if author else "") + ":"
+        else:
+            label = self.format_pos(
+                annot.pos, document, self.use_page_labels, self.page_number_offset,
+                author=author,
+            ) + (" " + extra if extra else "") + ":"
 
         # If we have short (few words) text with a short or no comment, and the
         # text contains no embedded full stops or quotes, then we'll just put
@@ -303,12 +308,27 @@ class MarkdownPrinter(Printer):
             quotepos = (1, 1) if text else None
             return self.format_bullet(msgparas, quotepos) + "\n\n"
 
+    def format_thread(
+        self,
+        annot: Annotation,
+        document: Document,
+        extra: typ.Optional[str] = None,
+        is_reply: bool = False
+    ) -> str:
+        """Format an annotation, with its replies (recursively) indented beneath it."""
+        ret = self.format_annot(annot, document, extra, is_reply)
+        for reply in annot.replies:
+            ret += textwrap.indent(
+                self.format_thread(reply, document, is_reply=True),
+                self.BULLET_INDENT2)
+        return ret
+
     def emit_body(
         self,
         document: Document
     ) -> typ.Iterator[str]:
         for a in document.iter_annots():
-            yield self.format_annot(a, document, a.subtype.name)
+            yield self.format_thread(a, document, a.subtype.name)
 
 
 class GroupedMarkdownPrinter(MarkdownPrinter):
@@ -371,6 +391,9 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
                     highlights_by_color[a.color].append(a)
                 else:
                     highlights.append(a)
+            elif a.replies:
+                # Without a comment of its own, the thread still belongs with its replies.
+                comments.append(a)
 
         for secname in self.sections:
             if (highlights or highlights_by_color) and secname == 'highlights':
@@ -379,13 +402,13 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
                 for color, annots in highlights_by_color.items():
                     yield fmt_header(f"Color: {color.ashex()}", level=3)
                     for a in annots:
-                        yield self.format_annot(a, document)
+                        yield self.format_thread(a, document)
 
                 if highlights and self.group_by_color:
                     yield fmt_header("Color: undefined", level=3)
 
                 for a in highlights:
-                    yield self.format_annot(a, document)
+                    yield self.format_thread(a, document)
 
             if (comments or comments_by_color) and secname == 'comments':
                 yield fmt_header("Detailed comments")
@@ -393,13 +416,13 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
                 for color, annots in comments_by_color.items():
                     yield fmt_header(f"Color: {color.ashex()}", level=3)
                     for a in annots:
-                        yield self.format_annot(a, document)
+                        yield self.format_thread(a, document)
 
                 if comments and self.group_by_color:
                     yield fmt_header("Color: undefined", level=3)
 
                 for a in comments:
-                    yield self.format_annot(a, document)
+                    yield self.format_thread(a, document)
 
             if nits and secname == 'nits':
                 yield fmt_header("Nits")
@@ -413,4 +436,4 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
                     elif a.subtype == AnnotationType.StrikeOut:
                         extra = "suggested deletion"
 
-                    yield self.format_annot(a, document, extra)
+                    yield self.format_thread(a, document, extra)
