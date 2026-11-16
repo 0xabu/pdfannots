@@ -15,7 +15,8 @@ import pdfminer.layout
 import pdfannots
 import pdfannots.utils
 from pdfannots.types import AnnotationType
-from pdfannots.printer.markdown import MarkdownPrinter, GroupedMarkdownPrinter
+from pdfannots.printer.markdown import (
+    MarkdownPrinter, GroupedMarkdownPrinter, PageMarkdownPrinter)
 from pdfannots.printer.json import JsonPrinter
 
 
@@ -419,6 +420,33 @@ class MarkdownPrinterTest(PrinterTestBase):
 
         unlabelled = MarkdownPrinter().print_file('dummyfile', self.doc)
         self.assertFalse(any("Author" in line for line in unlabelled))
+
+    def test_group_by_page(self) -> None:
+        p = PageMarkdownPrinter()
+        output = ''.join(p.print_file('dummyfile', self.doc))
+
+        headings = re.findall(r'^## (.+)$', output, re.MULTILINE)
+        self.assertEqual(headings, ['Page #1', 'Page #2', 'Page #4'])
+
+        # Each page's annotations appear under its heading, numbered continuously
+        # across pages, without repeating the page in the label.
+        sections = re.split(r'^## .+$', output, flags=re.MULTILINE)[1:]
+        numbers_by_page = [
+            [int(n) for n in re.findall(r'^ \* #([0-9]+) ', section, re.MULTILINE)]
+            for section in sections]
+        self.assertEqual(numbers_by_page, [[1, 2, 3], [4, 5, 6, 7], [8, 9, 10]])
+        self.assertNotIn(' * Page', output)
+
+        # The number comes first, followed by the section and the annotation type.
+        self.assertIn(' * #1 (Introduction) Squiggly:', output)
+
+        # The same annotations are printed as in the flat (ungrouped) output.
+        flat = ''.join(MarkdownPrinter().print_file('dummyfile', self.doc))
+        self.assertEqual(len(re.findall(r'^ \* ', flat, re.MULTILINE)), 10)
+
+        # Numbering restarts for each file.
+        again = ''.join(p.print_file('dummyfile2', self.doc))
+        self.assertEqual(again, output)
 
     def test_grouped(self) -> None:
         p = GroupedMarkdownPrinter(wrap_column=80)

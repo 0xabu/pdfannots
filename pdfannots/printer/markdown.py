@@ -4,7 +4,7 @@ import textwrap
 import typing as typ
 
 from . import Printer
-from ..types import RGB, AnnotationType, Pos, Annotation, Document
+from ..types import RGB, AnnotationType, Pos, Page, Annotation, Document
 
 logger = logging.getLogger('pdfannots')
 
@@ -162,6 +162,23 @@ class MarkdownPrinter(Printer):
 
         return result
 
+    def format_label(
+        self,
+        pos: Pos,
+        document: Document,
+        author: typ.Optional[str],
+        extra: typ.Optional[str]
+    ) -> str:
+        """
+        Format the label that introduces an annotation, e.g. "Page #2 (Section) Highlight:".
+
+        This is called only for annotations that will actually be printed.
+        """
+        return self.format_pos(
+            pos, document, self.use_page_labels, self.page_number_offset,
+            author=author,
+        ) + (" " + extra if extra else "") + ":"
+
     def format_bullet(
         self,
         paras: typ.List[str],
@@ -269,12 +286,8 @@ class MarkdownPrinter(Printer):
                            annot.subtype.name, annot.pos)
             return ''
 
-        # compute the formatted position (and extra bit if needed) as a label
         assert annot.pos is not None
-        label = self.format_pos(
-            annot.pos, document, self.use_page_labels, self.page_number_offset,
-            author=author,
-        ) + (" " + extra if extra else "") + ":"
+        label = self.format_label(annot.pos, document, author, extra)
 
         # If we have short (few words) text with a short or no comment, and the
         # text contains no embedded full stops or quotes, then we'll just put
@@ -414,3 +427,65 @@ class GroupedMarkdownPrinter(MarkdownPrinter):
                         extra = "suggested deletion"
 
                     yield self.format_annot(a, document, extra)
+
+
+class PageMarkdownPrinter(MarkdownPrinter):
+    """
+    Markdown printer that emits a page-by-page breakdown of annotations.
+
+    Each page with at least one annotation gets its own heading, followed by that
+    page's annotations (of all types) in document order. This is convenient as a
+    starting point for replying to each of a reviewer's comments in turn.
+
+    Each annotation is labelled with a number that is unique within the document
+    (e.g. "#3 (Section) Highlight:"), so that it can be referred to unambiguously. Numbers run
+    continuously across pages. They are identifiers only: the order of annotations
+    within a page is a heuristic, and need not match the visual reading order.
+    """
+
+    def __init__(self, **kwargs: typ.Any) -> None:
+        super().__init__(**kwargs)
+        self._annot_count = 0
+
+    def format_label(
+        self,
+        pos: Pos,
+        document: Document,
+        author: typ.Optional[str],
+        extra: typ.Optional[str]
+    ) -> str:
+        # The page is given by the enclosing heading, so the label omits it and
+        # instead carries the annotation's number, skipped annotations don't consume a number.
+        self._annot_count += 1
+        result = "#%d" % self._annot_count
+
+        if author:
+            result += " [%s]" % author
+
+        o = document.nearest_outline(pos)
+        if o:
+            result += " (%s)" % o.title
+
+        return result + (" " + extra if extra else "") + ":"
+
+    def emit_body(
+        self,
+        document: Document
+    ) -> typ.Iterator[str]:
+        # Numbering restarts for each document
+        self._annot_count = 0
+
+        # Group annotations by page, preserving document order
+        pages: typ.Dict[int, typ.Tuple[Page, typ.List[str]]] = {}
+        for a in document.iter_annots():
+            assert a.pos is not None
+            formatted = self.format_annot(a, document, a.subtype.name)
+            if formatted:
+                pages.setdefault(a.pos.page.pageno, (a.pos.page, []))[1].append(formatted)
+
+        for i, (page, body) in enumerate(pages.values()):
+            heading = page.format_name(
+                use_label=self.use_page_labels,
+                page_number_offset=self.page_number_offset).title()
+            yield ('\n' if i else '') + '## ' + heading + '\n'
+            yield from body
