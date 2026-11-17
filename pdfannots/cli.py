@@ -7,7 +7,7 @@ from pdfminer.layout import LAParams
 
 from . import __doc__, __version__, process_file
 from .printer import Printer
-from .printer.markdown import MarkdownPrinter, GroupedMarkdownPrinter
+from .printer.markdown import MarkdownPrinter, GroupedMarkdownPrinter, PageMarkdownPrinter
 from .printer.json import JsonPrinter
 
 
@@ -68,6 +68,13 @@ def parse_args() -> typ.Tuple[argparse.Namespace, LAParams]:
         dest="group_by_color",
         default=False, action="store_true",
         help="Group highlights and comments by color in grouped output."
+    )
+    mutex_group.add_argument(
+        "--group-by-page",
+        dest="group_by_page",
+        default=False, action="store_true",
+        help="Emit a page-by-page breakdown, with a heading for each annotated page "
+             "and a unique number for each annotation."
     )
 
     g.add_argument("-s", "--sections", metavar="SEC", nargs="*",
@@ -153,7 +160,12 @@ def main() -> None:
     printer: Printer
     if args.format == "md":
         mdargs = {k: getattr(args, k) for k in MD_FORMAT_ARGS}
-        printer = (GroupedMarkdownPrinter if args.group else MarkdownPrinter)(**mdargs)
+        if args.group_by_page:
+            printer = PageMarkdownPrinter(**mdargs)
+        elif args.group:
+            printer = GroupedMarkdownPrinter(**mdargs)
+        else:
+            printer = MarkdownPrinter(**mdargs)
     elif args.format == "json":
         printer = JsonPrinter(
             remove_hyphens=args.remove_hyphens,
